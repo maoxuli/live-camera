@@ -56,7 +56,7 @@ class LogoBuffer(io.BufferedIOBase):
             return self._frame 
 
 import time 
-class FrameBuffer(io.BufferedIOBase):
+class StreamBuffer(io.BufferedIOBase):
     def __init__(self):
         self._condition = threading.Condition()
         self._frame = None 
@@ -77,6 +77,20 @@ class FrameBuffer(io.BufferedIOBase):
                 logger.warning(f"read: {time.time() - self._last_read_t}")
             self._last_read_t = time.time()
             return self._frame if self._condition.wait(1) else None 
+
+class FrameBuffer(io.BufferedIOBase): 
+    def __init__(self): 
+        self._lock = threading.Lock() 
+        self._frame = None 
+
+    def write(self, buf): 
+        with self._lock: 
+            self._frame = buf 
+
+    def read(self): 
+        with self._lock: 
+            return self._frame 
+
 
 # video streaming server 
 @singleton 
@@ -104,7 +118,7 @@ class VideoServer(object):
         self._snapshot_buffer = FrameBuffer() 
 
         # stream buffer 
-        self._stream_buffer = FrameBuffer()
+        self._stream_buffer = StreamBuffer()
 
         # camera handle  
         self.picam = Picamera2() 
@@ -112,7 +126,7 @@ class VideoServer(object):
         # snapshot could use different config        
         self.snapshot_config = None 
         if "snapshot" in self._config: 
-            _snapshot_config = self._config["snapshot_config"]
+            _snapshot_config = self._config["snapshot"]
             logger.info(f"snapshot config: {_snapshot_config}")
             resolution = _snapshot_config["resolution"] 
             logger.debug(f"{resolution=}")
@@ -131,7 +145,11 @@ class VideoServer(object):
     
     @property
     def snapshot(self): 
-        self.picam.switch_mode_and_capture_file(self.snapshot_config, self._snapshot_buffer, format="jpeg")
+        logger.info("snapshot...") 
+        _data = io.BytesIO() 
+        self.picam.capture_file(_data, format="jpeg")
+        logger.info(f"Image size: {len(_data.getvalue())}")
+        self._snapshot_buffer.write(_data.getvalue()) 
         return self._snapshot_buffer 
     
     @property
@@ -196,16 +214,16 @@ class WebServer(object):
                     self.send_error(404)
             elif self.path == "/snapshot.jpg":
                 self.send_response(200)
-                self.send_header('Content-type', 'image/jpeg')
-                self.end_headers()
+                self.send_header("Content-type", "image/jpeg")
                 try: 
                     video_server = VideoServer() 
-                    image = video_server.snapshot.read() 
-                    logger.warning("Failed capture snapshot")
+                    image = video_server.snapshot.read()
                     if image is None: 
+                        logger.warning("Failed capture snapshot")
                         image = video_server.logo.read() 
+                    self.send_header("Content-Length", len(image))
+                    self.end_headers() 
                     self.wfile.write(image)
-                    self.wfile.write(b"\r\n")
                 except Exception as e:
                     logger.warning(f"Error in snapshot: {e}")
                     self.send_error(404)
