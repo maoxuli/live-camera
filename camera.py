@@ -1,12 +1,14 @@
 #!/usr/bin/env python 
 
+import time 
 import json 
 import asyncio
 
 import logging
 logger = logging.getLogger(__name__)
 
-# support singleton pattern 
+# Only one instance is allowed for each server, including video server, 
+# web server, and websocket server.  
 def singleton(cls):
     instances = {}
     def wrapper(*args, **kwargs):
@@ -15,37 +17,42 @@ def singleton(cls):
         return instances[cls]
     return wrapper
 
-
-# using a buffer to deliver frame from video server to web server 
+# There are three types of images will be send to client side, including 
+# frames of video stream, snapshot image, and a static image showing when  
+# video stream and snapshot is not ready or in error state. We use three 
+# buffers to manage the images, which have same interface. 
+ 
 import io
 import threading
 from PIL import Image
-from picamera2 import Picamera2
-from picamera2.encoders import JpegEncoder
-from picamera2.outputs import FileOutput
-import libcamera
 
+# When the camera is not ready or in error state, we will show a "logo" 
+# image. The logo image is refreshed in 1 fps, so could be "read" once 
+# or in a loop. 
 class LogoBuffer(io.BufferedIOBase): 
     def __init__(self, image_file = None): 
         self._condition = threading.Condition()
         self._frame = None 
-        # static image frame 
+        # load static image 
         if image_file: 
+            logger.info(f"Load logo image from {image_file}")
             with open(image_file, "rb") as f: 
                 self._frame = f.read()
         else: 
+            logger.info(f"Create dummy logo image")
             buf = io.BytesIO()
             image = Image.new("RGB", (1280, 720), (0, 0, 0)) 
             image.save(buf, format='jpeg') 
             self._frame = buf.getvalue() 
+        logger.debug(f"Image size: {len(self._frame)}")
         # control frame rate 
         self._start_timer() 
 
-    def _start_timer(self): 
-        timer = threading.Timer(1, self.on_timer) 
+    def _start_timer(self, timeout = 1): # 1 fps  
+        timer = threading.Timer(timeout, self._on_timer) 
         timer.start()
 
-    def on_timer(self): 
+    def _on_timer(self): 
         with self._condition: 
             self._condition.notify_all() 
         self._start_timer() 
@@ -55,7 +62,7 @@ class LogoBuffer(io.BufferedIOBase):
             self._condition.wait() 
             return self._frame 
 
-import time 
+# Frame of video stream is supposed to be "write" and "read" in a loop. 
 class StreamBuffer(io.BufferedIOBase):
     def __init__(self):
         self._condition = threading.Condition()
@@ -65,19 +72,20 @@ class StreamBuffer(io.BufferedIOBase):
 
     def write(self, buf):
         with self._condition:
-            if time.time() - self._last_write_t > 0.05: 
-                logger.warning(f"write: {time.time() - self._last_write_t}")
+            if time.time() - self._last_write_t > 0.05: # lower than 20 fps 
+                logger.warning(f"write after: {time.time() - self._last_write_t}")
             self._last_write_t = time.time()
             self._frame = buf
             self._condition.notify_all()
 
     def read(self): 
         with self._condition:
-            if time.time() - self._last_read_t > 0.1: 
-                logger.warning(f"read: {time.time() - self._last_read_t}")
+            if time.time() - self._last_read_t > 0.1: # lower than 10 fps 
+                logger.warning(f"read after: {time.time() - self._last_read_t}")
             self._last_read_t = time.time()
             return self._frame if self._condition.wait(1) else None 
 
+# Snapshot "write" and "read" a single image at once. 
 class FrameBuffer(io.BufferedIOBase): 
     def __init__(self): 
         self._lock = threading.Lock() 
@@ -91,70 +99,72 @@ class FrameBuffer(io.BufferedIOBase):
         with self._lock: 
             return self._frame 
 
+# VideoServer works with one camera sensor, to manage the video streaming and snapshot. 
+# The parmaters of the camera/video is passed in with a config file. 
 
-# video streaming server 
+# from picamera2 import Picamera2
+# from picamera2.encoders import JpegEncoder
+# from picamera2.outputs import FileOutput
+# import libcamera
+
 @singleton 
 class VideoServer(object): 
-    def __init__(self, config_file = None): 
-        # default config for video streaming 
+    def __init__(self, config_file = None):
+        # config 
+        self._config_file = config_file 
+        self._config = None 
+        self.load_config() 
+        assert(self._config is not None)
+
+        # logo  
+        logo_file = self._config["logo_file"] if "logo_file" in self._config else None 
+        self._logo_buffer = LogoBuffer(logo_file) 
+
+        # stream  
+        # self.picam2 = Picamera2()
+        self._stream_buffer = StreamBuffer()
+        self._stream_config = None 
+        self.config_stream() 
+
+        # snapshot  
+        self._snapshot_buffer = FrameBuffer() 
+        self._snapshot_config = None 
+        self.config_snapshot() 
+
+    def load_config(self): 
+        # default config
         self._config = {
             "resolution": (1280, 720), 
             "frame_rate": 30, 
             "af_mode": 0, 
         }
         logger.debug(f"Default video config: {self._config}")
-
         # overwrite with config file 
-        if config_file: 
-            with open(config_file) as f: 
+        if self._config_file: 
+            logger.info(f"Load video config from {self._config_file}")
+            with open(self._config_file) as f: 
                 self._config.update(json.load(f)) 
                 logger.debug(f"Updated video config: {self._config}")
 
-        # logo buffer for waiting logos 
-        logo_file = self._config["logo_file"] if "logo_file" in self._config else None 
-        self._logo_buffer = LogoBuffer(logo_file) 
+    def save_config(self): 
+        if self._config_file: 
+            logger.info(f"Save video config to {self._config_file}")
+            with open(self._config_file, "w") as f: 
+                json.dump(self._config, f, indent = 4)
 
-        # snapshot buffer 
-        self._snapshot_buffer = FrameBuffer() 
+    def config_stream(self): 
+        try: 
+            logger.info("Config for video streaming")
+            resolution = self._config["resolution"] 
+            logger.info(f"{resolution=}")
+            self._stream_config = self.picam2.create_video_configuration(main={"size": resolution})
+            self.picam.configure(self._stream_config)
+            self.picam.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
+        except Exception as e: 
+            logger.warning(f"Failed config video streaming: {e}")
 
-        # stream buffer 
-        self._stream_buffer = StreamBuffer()
-
-        # camera handle  
-        self.picam = Picamera2() 
-
-        # snapshot could use different config        
-        self.snapshot_config = None 
-        if "snapshot" in self._config: 
-            _snapshot_config = self._config["snapshot"]
-            logger.info(f"snapshot config: {_snapshot_config}")
-            resolution = _snapshot_config["resolution"] 
-            logger.debug(f"{resolution=}")
-            self.snapshot_config = self.picam.create_still_configuration(main={"size": resolution})
-
-        # streaming config 
-        resolution = self._config["resolution"] 
-        logger.debug(f"{resolution=}")
-        stream_config = self.picam.create_video_configuration(main={"size": resolution})
-        self.picam.configure(stream_config)
-        self.picam.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
-
-    @property
-    def stream(self): 
-        return self._stream_buffer  
-    
-    @property
-    def snapshot(self): 
-        logger.info("snapshot...") 
-        _data = io.BytesIO() 
-        self.picam.capture_file(_data, format="jpeg")
-        logger.info(f"Image size: {len(_data.getvalue())}")
-        self._snapshot_buffer.write(_data.getvalue()) 
-        return self._snapshot_buffer 
-    
-    @property
-    def logo(self): 
-        return self._logo_buffer
+    def config_snapshot(self): 
+        pass 
 
     def get_param(self, name): 
         logger.info(f"Get video param {name}")
@@ -164,11 +174,36 @@ class VideoServer(object):
     def set_param(self, name, value): 
         logger.info(f"Set video param {name} to {value}")
         self._config[name] = value 
+
+    @property
+    def config(self): 
+        return self._config 
+    
+    @config.setter 
+    def config(self): 
+        pass 
+
+    @property
+    def logo(self): 
+        return self._logo_buffer
+
+    @property
+    def stream(self): 
+        return self._stream_buffer  
+    
+    @property
+    def snapshot(self): 
+        logger.info("snapshot") 
+        _data = io.BytesIO() 
+        self.picam.capture_file(_data, format="jpeg")
+        logger.info(f"Image size: {len(_data.getvalue())}")
+        self._snapshot_buffer.write(_data.getvalue()) 
+        return self._snapshot_buffer 
     
     def start(self): 
         logger.info("Start video streaming")
         try: 
-            self.picam.start_recording(JpegEncoder(), FileOutput(self._stream_buffer)) 
+            self.picam2.start_recording(JpegEncoder(), FileOutput(self._stream_buffer)) 
         except Exception as e: 
             logger.warning(f"Failed start video streaming: {e}") 
 
@@ -180,7 +215,9 @@ class VideoServer(object):
             logger.warning(f"Failed stop video streaming: {e}")
 
 
-# web server for video streaming to web page 
+# Web server serves web pages, including the live video page, snapshot page, and admin page. 
+# It also handle the request of video stream and snapshot image. 
+            
 import threading 
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler 
 
@@ -232,7 +269,6 @@ class WebServer(object):
                     self.path = "/camera.html"
                 return super().do_GET()
 
-
     def __init__(self, port = 8080): 
         self._port = port 
         self._httpd = ThreadingHTTPServer(("", self._port), self.HttpRequestHandler) 
@@ -257,7 +293,8 @@ class WebServer(object):
             logger.warning("Web server stopped")
         
 
-# websocket server for communications from camera to web page 
+# Websocket server is used for bi-directional communications between camera and web pages.  
+
 import websockets
 from http import HTTPStatus
 
@@ -300,15 +337,13 @@ class WebsocketServer(object):
         if request.path == "/healthz":
             return connection.respond(HTTPStatus.OK, "OK\n")
 
-
 # start camera server(s) based on config file 
 async def main(config_file = None): 
     # default config 
     config = {
         "ws_port": 8090, 
         "http_port": 8080, 
-        "video_config": "video.json", 
-        "network_config": "network.json",
+        "video_config": "video.json"
     }
     logger.debug(f"Default camera config: {config}")
 
@@ -348,16 +383,15 @@ async def main(config_file = None):
         web_server.stop() 
         video_server.stop() 
 
-
 import argparse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Camera Server")
     parser.add_argument("--config_file", "-c", type=str, default="camera.json")
-    parser.add_argument("--debug_level", "-d", type=str, default="INFO")
+    parser.add_argument("--log_level", type=str, default="INFO")
 
     # parser.print_help()
     args = parser.parse_args()
-    logging.basicConfig(level=args.debug_level, format="%(asctime)s - %(levelname)s - %(message)s")
+    logging.basicConfig(level=args.log_level, format="%(asctime)s - %(levelname)s - %(message)s")
     logger.debug(vars(args))
 
     # start camera server with config file   

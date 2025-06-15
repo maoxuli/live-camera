@@ -6,6 +6,9 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>Live Camera Video</title>
 <style>
+* {
+  box-sizing: border-box;
+}
 body {
   margin: 0; 
   padding: 0; 
@@ -22,12 +25,14 @@ body {
 }
 .scene {
   position: absolute;
-  width: 100%;
-  height: 100%; 
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   overflow: hidden;
+  border: 1px solid red;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 .scene img {
   width: 100%;
@@ -43,8 +48,8 @@ body {
 <body>
 <div class="container">
   <div class="view">
-    <div class="scene" id="scene">
-      <img id="image" src="stream.mjpg">
+    <div class="scene" id="scene" style="width: 100%; height: 100%">
+      <img id="image" src="stream.mjpg" onload="update_image_size()">
     </div>
   </div>
   <div class="controls">
@@ -80,6 +85,7 @@ function snapshot() {
   window.location = "snapshot.html";
 }
 function update_image_size() {
+  console.log("update image size")
   var scene = document.getElementById("scene");
   // console.log("scene width: " + scene.clientWidth);
   // console.log("scene height: " + scene.clientHeight);
@@ -105,6 +111,7 @@ window.onload = function() {
   console.log('onload...');
   var image = document.getElementById("image");
   image.onload = function() {
+    console.log("image onload...")
     update_image_size();
   };
 }
