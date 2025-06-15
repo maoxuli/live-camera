@@ -120,14 +120,9 @@ class VideoServer(object):
 
         # streaming config 
         resolution = self._config["resolution"] 
-<<<<<<< HEAD
         logger.debug(f"{resolution=}")
         stream_config = self.picam.create_video_configuration(main={"size": resolution})
         self.picam.configure(stream_config)
-=======
-        logger.info(f"{resolution=}")
-        self.picam.configure(self.picam.create_video_configuration(main={"size": resolution}))
->>>>>>> 91955b4f640162fbb8e360110335baa15747b27c
         self.picam.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
 
     @property
