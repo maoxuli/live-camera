@@ -55,18 +55,27 @@ class LogoBuffer(io.BufferedIOBase):
             self._condition.wait() 
             return self._frame 
 
+import time 
 class FrameBuffer(io.BufferedIOBase):
     def __init__(self):
         self._condition = threading.Condition()
         self._frame = None 
+        self._last_write_t = time.time()
+        self._last_read_t = time.time()
 
     def write(self, buf):
         with self._condition:
+            if time.time() - self._last_write_t > 0.05: 
+                logger.warning(f"write: {time.time() - self._last_write_t}")
+            self._last_write_t = time.time()
             self._frame = buf
             self._condition.notify_all()
 
     def read(self): 
         with self._condition:
+            if time.time() - self._last_read_t > 0.1: 
+                logger.warning(f"read: {time.time() - self._last_read_t}")
+            self._last_read_t = time.time()
             return self._frame if self._condition.wait(1) else None 
 
 # video streaming server 
@@ -111,9 +120,14 @@ class VideoServer(object):
 
         # streaming config 
         resolution = self._config["resolution"] 
+<<<<<<< HEAD
         logger.debug(f"{resolution=}")
         stream_config = self.picam.create_video_configuration(main={"size": resolution})
         self.picam.configure(stream_config)
+=======
+        logger.info(f"{resolution=}")
+        self.picam.configure(self.picam.create_video_configuration(main={"size": resolution}))
+>>>>>>> 91955b4f640162fbb8e360110335baa15747b27c
         self.picam.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
 
     @property
