@@ -1,0 +1,6 @@
+{
+    "logo_file": "logo.jpg", 
+    "resolution": [1280, 720], 
+    "frame_rate": 30, 
+    "af_mode": 2
+}

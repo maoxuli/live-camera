@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Camera Video</title>
+<style>
+.container {
+  display: flex;
+  flex-flow: column;
+  height: 100vh;
+}
+.view {
+  flex: 2;
+  position: relative;
+  overflow: auto;
+}
+.scene {
+  position: absolute;
+  width: 100%;
+  height: 100%; 
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+.scene img {
+  width: 100%;
+  height: 100%;
+}
+.controls {
+  min-height: 50px; 
+  overflow: hidden; 
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="view">
+    <div class="scene" id="scene">
+      <img id="image" src="stream.mjpg">
+    </div>
+  </div>
+  <div class="controls">
+    <button onclick="fit_view()">Fit View</button>
+    <button onclick="zoom_in()">Zoom In</button>
+    <button onclick="zoom_out()">Zoom Out</button>
+    <button onclick="snapshot()">Snapshot</button>
+  </div>
+</div>
+<script>
+function zoom_in() {
+  var scene = document.getElementById("scene");
+  scale = parseInt(scene.style.width) 
+  scale += scale * 0.1 
+  scale = (scale / 100).toLocaleString('en-US', {style: 'percent'}); 
+  scene.style.width = scale 
+  scene.style.height = scale 
+}
+function zoom_out() {
+  var scene = document.getElementById("scene");
+  scale = parseInt(scene.style.width) 
+  scale -= scale * 0.1 
+  scale = (scale / 100).toLocaleString('en-US', {style: 'percent'}); 
+  scene.style.width = scale 
+  scene.style.height = scale 
+}
+function fit_view() {
+  scene = document.getElementById("scene"); 
+  scene.style.width = "100%";
+  scene.style.height = "100%"; 
+}
+function snapshot() {
+  window.location = "snapshot.html";
+}
+function update_image_size() {
+  var scene = document.getElementById("scene");
+  // console.log("scene width: " + scene.clientWidth);
+  // console.log("scene height: " + scene.clientHeight);
+  var image = document.getElementById("image");
+  // console.log("image width: " + image.naturalWidth);
+  // console.log("image height: " + image.naturalHeight);
+  if (image.naturalWidth/image.naturalHeight > scene.clientWidth/scene.clientHeight) { 
+    // wide image 
+    image.style.width = "100%";
+    image.style.height = "auto";
+  }
+  else { 
+    // tall image 
+    image.style.width = "auto";
+    image.style.height = "100%";
+  }
+}
+window.onresize = function() {
+  console.log('onresize...');
+  update_image_size(); 
+}
+window.onload = function() {
+  console.log('onload...');
+  var image = document.getElementById("image");
+  image.onload = function() {
+    update_image_size();
+  };
+}
+</script>
+</body>
+</html>
