@@ -98,10 +98,22 @@ class VideoServer(object):
         self._stream_buffer = FrameBuffer()
 
         # camera handle  
-        self.picam = Picamera2()
+        self.picam = Picamera2() 
+
+        # snapshot could use different config        
+        self.snapshot_config = None 
+        if "snapshot" in self._config: 
+            _snapshot_config = self._config["snapshot_config"]
+            logger.info(f"snapshot config: {_snapshot_config}")
+            resolution = _snapshot_config["resolution"] 
+            logger.debug(f"{resolution=}")
+            self.snapshot_config = self.picam.create_still_configuration(main={"size": resolution})
+
+        # streaming config 
         resolution = self._config["resolution"] 
         logger.debug(f"{resolution=}")
-        self.picam.configure(self.picam.create_video_configuration(main={"size": resolution}))
+        stream_config = self.picam.create_video_configuration(main={"size": resolution})
+        self.picam.configure(stream_config)
         self.picam.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
 
     @property
@@ -110,7 +122,7 @@ class VideoServer(object):
     
     @property
     def snapshot(self): 
-        # self.picam.capture_file(self._snapshot_buffer)
+        self.picam.switch_mode_and_capture_file(self.snapshot_config, self._snapshot_buffer, format="jpeg")
         return self._snapshot_buffer 
     
     @property
@@ -132,7 +144,6 @@ class VideoServer(object):
             self.picam.start_recording(JpegEncoder(), FileOutput(self._stream_buffer)) 
         except Exception as e: 
             logger.warning(f"Failed start video streaming: {e}") 
-            self._buffer = DummyBuffer()
 
     def stop(self):  
         logger.info("Stop video streaming")
