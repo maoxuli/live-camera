@@ -3,6 +3,10 @@
 <head>
 <title>Live Camera Snapshot</title>
 <style>
+body {
+  margin: 0; 
+  padding: 0;
+}
 .container {
   display: flex;
   flex-flow: column;
@@ -42,7 +46,7 @@
   </div>
   <div class="controls">
     <button><a href="snapshot.jpg" download>Save</a></button>
-    <button onclick="goback">Close</button>
+    <button onclick="goback()">Close</button>
   </div>
 </div>
 <script>
