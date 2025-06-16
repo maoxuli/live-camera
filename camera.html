@@ -14,45 +14,45 @@ body {
   padding: 0; 
 }
 .container {
-  display: flex;
-  flex-flow: column;
-  height: 100vh;
+  position: relative;
+  width: 100%;
+  max-height: 100vh;
+  margin: auto; 
+  overflow: hidden;
 }
 .view {
-  flex: 2;
   position: relative;
-  overflow: auto;
-}
-.scene {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  overflow: hidden;
-  border: 1px solid red;
+  width: 100%;
+  height: auto;
+  max-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: auto;
 }
-.scene img {
-  width: 100%;
-  height: 100%;
+.view img {
+  position: relative;
 }
 .controls {
-  min-height: 50px; 
+  position: relative;
   overflow: hidden; 
   text-align: center;
+}
+.overlay {
+  position: absolute;
+  height: 50px;
+  right: 0;
+  bottom: 0;
+  left: 0;
 }
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="view">
-    <div class="scene" id="scene" style="width: 100%; height: 100%">
-      <img id="image" src="stream.mjpg" onload="update_image_size()">
-    </div>
+  <div id="view" class="view">
+    <img id="image" style="width:100%;height:auto" src="stream.mjpg" onload="update_image_fit()">
   </div>
-  <div class="controls">
+  <div id="controls" class="controls">
     <button onclick="fit_view()">Fit View</button>
     <button onclick="zoom_in()">Zoom In</button>
     <button onclick="zoom_out()">Zoom Out</button>
@@ -60,60 +60,96 @@ body {
   </div>
 </div>
 <script>
-function zoom_in() {
-  var scene = document.getElementById("scene");
-  scale = parseInt(scene.style.width) 
-  scale += scale * 0.1 
-  scale = (scale / 100).toLocaleString('en-US', {style: 'percent'}); 
-  scene.style.width = scale 
-  scene.style.height = scale 
-}
-function zoom_out() {
-  var scene = document.getElementById("scene");
-  scale = parseInt(scene.style.width) 
-  scale -= scale * 0.1 
-  scale = (scale / 100).toLocaleString('en-US', {style: 'percent'}); 
-  scene.style.width = scale 
-  scene.style.height = scale 
-}
-function fit_view() {
-  scene = document.getElementById("scene"); 
-  scene.style.width = "100%";
-  scene.style.height = "100%"; 
-}
 function snapshot() {
   window.location = "snapshot.html";
 }
-function update_image_size() {
-  console.log("update image size")
-  var scene = document.getElementById("scene");
-  // console.log("scene width: " + scene.clientWidth);
-  // console.log("scene height: " + scene.clientHeight);
+function zoom_in() {
+  console.log("zoom in")
+  var view = document.getElementById("view");
+  var controls = document.getElementById("controls");
+  var image = document.getElementById("image");
+  var width = Math.ceil(image.offsetWidth * 1.1) 
+  var height = Math.ceil(image.offsetHeight * 1.1) 
+  max_height = document.documentElement.clientHeight; 
+  console.log("max height: " + max_height)
+  if (height > max_height - 50) {
+    controls.classList.add("overlay")
+    view.style.height = max_height + "px";
+    if (height < max_height) height = max_height;
+  }
+  else {
+    controls.classList.remove("overlay")
+    view.style.height = "auto";
+  }
+  image.style.width = width + "px" 
+  image.style.height = height + "px"
+}
+function zoom_out() {
+  console.log("zoom out")
+  var view = document.getElementById("view");
+  var controls = document.getElementById("controls");
+  var image = document.getElementById("image");
+  var width = Math.ceil(image.offsetWidth * 0.9) 
+  var height = Math.ceil(image.offsetHeight * 0.9) 
+  max_height = document.documentElement.clientHeight; 
+  console.log("max height: " + max_height)
+  if (height > max_height - 50) {
+    controls.classList.add("overlay")
+    view.style.height = max_height + "px";
+    if (height < max_height) height = max_height;
+  }
+  else {
+    controls.classList.remove("overlay")
+    view.style.height = "auto";
+  }
+  image.style.width = width + "px" 
+  image.style.height = height + "px"
+}
+function fit_view() {
+  console.log("fit view")
+  // max height 
+  max_height = document.documentElement.clientHeight; 
+  // var view = document.getElementById("view");
+  // view.style.max_width = max_height + "px"; 
+  console.log("max height: " + max_height)
+  // potential height 
   var image = document.getElementById("image");
   // console.log("image width: " + image.naturalWidth);
   // console.log("image height: " + image.naturalHeight);
-  if (image.naturalWidth/image.naturalHeight > scene.clientWidth/scene.clientHeight) { 
-    // wide image 
+  var image_scale = image.naturalWidth/image.naturalHeight 
+  console.log("image scale: " + image_scale) 
+  var view = document.getElementById("view");
+  // console.log("view width: " + view.clientWidth);
+  // console.log("view height: " + view.clientHeight);
+  console.log("view width: " + view.clientWidth) 
+  var image_height = Math.ceil(view.clientWidth / image_scale) 
+  console.log("image height: " + image_height)
+  var controls = document.getElementById("controls");
+  if (image_height > max_height - 50) {
+    // image is taller
+    controls.classList.add("overlay")
+    view.style.height = max_height + "px";
+    image.style.height = "100%";
+    image.style.width = "auto";
+  }
+  else { 
+    // image is wider 
+    controls.classList.remove("overlay")
+    view.style.height = "auto"; 
     image.style.width = "100%";
     image.style.height = "auto";
   }
-  else { 
-    // tall image 
-    image.style.width = "auto";
-    image.style.height = "100%";
+}
+function update_image_fit() {
+  console.log("update image fit")
+  var image = document.getElementById("image");
+  if (image.style.width == "100%" || image.style.height == "100%") {
+    fit_view() 
   }
 }
 window.onresize = function() {
   console.log('onresize...');
-  update_image_size(); 
-}
-window.onload = function() {
-  console.log('onload...');
-  var image = document.getElementById("image");
-  image.onload = function() {
-    console.log("image onload...")
-    update_image_size();
-  };
+  update_image_fit(); 
 }
 </script>
 </body>

@@ -3,48 +3,53 @@
 <head>
 <title>Live Camera Snapshot</title>
 <style>
+* {
+  box-sizing: border-box;
+}
 body {
   margin: 0; 
-  padding: 0;
+  padding: 0; 
 }
 .container {
-  display: flex;
-  flex-flow: column;
-  height: 100vh;
-}
-.view {
-  flex: 2;
   position: relative;
-  overflow: auto;
-}
-.scene {
-  position: absolute;
   width: 100%;
-  height: 100%; 
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  max-height: 100vh;
+  margin: auto; 
   overflow: hidden;
 }
-.scene img {
+.view {
+  position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
+  max-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+}
+.view img {
+  position: relative;
 }
 .controls {
-  min-height: 50px; 
+  position: relative;
   overflow: hidden; 
   text-align: center;
+}
+.overlay {
+  position: absolute;
+  height: 50px;
+  right: 0;
+  bottom: 0;
+  left: 0;
 }
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="view">
-    <div class="scene" id="scene">
-      <img id="image" src="snapshot.jpg">
-    </div>
+  <div id="view" class="view">
+    <img id="image" style="width:100%;height:auto" src="snapshot.jpg" onload="update_image_fit()">
   </div>
-  <div class="controls">
+  <div id="controls" class="controls">
     <button><a href="snapshot.jpg" download>Save</a></button>
     <button onclick="goback()">Close</button>
   </div>
@@ -53,34 +58,51 @@ body {
 function goback() {
   window.location = "camera.html";
 }
-function update_image_size() {
-  var scene = document.getElementById("scene");
-  // console.log("scene width: " + scene.clientWidth);
-  // console.log("scene height: " + scene.clientHeight);
+function fit_view() {
+  console.log("fit view")
+  // max height 
+  max_height = document.documentElement.clientHeight; 
+  // var view = document.getElementById("view");
+  // view.style.max_width = max_height + "px"; 
+  console.log("max height: " + max_height)
+  // potential height 
   var image = document.getElementById("image");
   // console.log("image width: " + image.naturalWidth);
   // console.log("image height: " + image.naturalHeight);
-  if (image.naturalWidth/image.naturalHeight > scene.clientWidth/scene.clientHeight) { 
-    // wide image 
+  var image_scale = image.naturalWidth/image.naturalHeight 
+  console.log("image scale: " + image_scale) 
+  var view = document.getElementById("view");
+  // console.log("view width: " + view.clientWidth);
+  // console.log("view height: " + view.clientHeight);
+  console.log("view width: " + view.clientWidth) 
+  var image_height = Math.ceil(view.clientWidth / image_scale) 
+  console.log("image height: " + image_height)
+  var controls = document.getElementById("controls");
+  if (image_height > max_height - 50) {
+    // image is taller
+    controls.classList.add("overlay")
+    view.style.height = max_height + "px";
+    image.style.height = "100%";
+    image.style.width = "auto";
+  }
+  else { 
+    // image is wider 
+    controls.classList.remove("overlay")
+    view.style.height = "auto"; 
     image.style.width = "100%";
     image.style.height = "auto";
   }
-  else { 
-    // tall image 
-    image.style.width = "auto";
-    image.style.height = "100%";
+}
+function update_image_fit() {
+  console.log("update image fit")
+  var image = document.getElementById("image");
+  if (image.style.width == "100%" || image.style.height == "100%") {
+    fit_view() 
   }
 }
 window.onresize = function() {
   console.log('onresize...');
-  update_image_size(); 
-}
-window.onload = function() {
-  console.log('onload...');
-  var image = document.getElementById("image");
-  image.onload = function() {
-    update_image_size();
-  };
+  update_image_fit(); 
 }
 </script>
 </body>

@@ -194,10 +194,13 @@ class VideoServer(object):
     @property
     def snapshot(self): 
         logger.info("snapshot") 
-        _data = io.BytesIO() 
-        self.picam.capture_file(_data, format="jpeg")
-        logger.info(f"Image size: {len(_data.getvalue())}")
-        self._snapshot_buffer.write(_data.getvalue()) 
+        try: 
+            _data = io.BytesIO() 
+            self.picam2.capture_file(_data, format="jpeg")
+            logger.info(f"Image size: {len(_data.getvalue())}")
+            self._snapshot_buffer.write(_data.getvalue()) 
+        except Exception as e: 
+            logger.warning(f"Failed capture image: {e}")
         return self._snapshot_buffer 
     
     def start(self): 
