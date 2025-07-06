@@ -19,7 +19,7 @@ echo "BASH_DIR: ${BASH_DIR}"
 echo "Install camera start script..." 
 cat "${BASH_DIR}/camera.sh" 
 echo "" 
-sed -i "s/^\([[:space:]]*CAMERA_ROOT[[:space:]]*=\)[[:space:]]*.*/\1\"${BASH_DIR//\//\\/}\"/" "${BASE_DIR}/camera.sh"
+sed -i "s/^\([[:space:]]*CAMERA_ROOT[[:space:]]*=\)[[:space:]]*.*/\1\"${BASH_DIR//\//\\/}\"/" "${BASH_DIR}/camera.sh"
 cat "${BASH_DIR}/camera.sh" 
 echo "" 
 sudo cp -r ${BASH_DIR}/camera.sh /usr/local/bin/camera.sh 
@@ -27,7 +27,7 @@ sudo chmod a+x /usr/local/bin/camera.sh
 
 # systemd service for the camera software
 echo "Install camera service..." 
-sudo cp -f "${BASH_DIR}/camera.serivce" /etc/systemd/system/camera.service 
+sudo cp -f "${BASH_DIR}/camera.service" /etc/systemd/system/camera.service 
 sudo chmod 644 /etc/systemd./system/camera.service 
 sudo systemctl enable cmaera 
 sudo systemctl start camera 
