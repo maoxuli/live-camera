@@ -18,10 +18,10 @@ echo "BASH_DIR: ${BASH_DIR}"
 # entry script for the camera software 
 echo "Install camera start script..." 
 cat "${BASH_DIR}/camera.sh" 
-cat "" 
-sed -i "s/^\([[:space:]]*CAMERA_ROOT[[:space:]]*=\)[[:space:]]*.*/\1\"${BASH_DIR}\"/" "${BASE_DIR}/camera.sh"
+echo "" 
+sed -i "s/^\([[:space:]]*CAMERA_ROOT[[:space:]]*=\)[[:space:]]*.*/\1\"${BASH_DIR//\//\\/}\"/" "${BASE_DIR}/camera.sh"
 cat "${BASH_DIR}/camera.sh" 
-cat "" 
+echo "" 
 sudo cp -r ${BASH_DIR}/camera.sh /usr/local/bin/camera.sh 
 sudo chmod a+x /usr/local/bin/camera.sh 
 
