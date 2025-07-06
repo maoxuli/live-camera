@@ -1,0 +1,17 @@
+[Unit]
+Description=IEEE 802.11 %p%i AP on wlan%i with hostapd
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/run/hostapd.pid
+Restart=on-failure
+RestartSec=2
+Environment=DAEMON_CONF=/etc/hostapd/hostapd.conf
+EnvironmentFile=-/etc/default/hostapd
+ExecStartPre=/sbin/iw dev wlan%i interface add %p%i type __ap
+ExecStart=/usr/sbin/hostapd -i %p%i -P /run/hostapd.pid -B $DAEMON_OPTS ${DAEMON_CONF}
+ExecStopPost=-/sbin/iw dev %p0 del
+
+[Install]
+WantedBy=multi-user.target

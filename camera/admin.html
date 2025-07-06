@@ -113,12 +113,20 @@ button:hover {
     <div class="section">
         <h1>Camera/Video</h1>
         <div>
-            <label for="video_res">Resolution:</label>
-            <input type="text" id="video_res" value="1280x720">
+            <label for="video_res">Resolution</label>
+            <select id="video_res">
+                <option value="640,480">640x480 (4:3)</option>
+                <option value="1280,720">1280x720 (16:9)</option>
+                <option value="1920,1080">1920x1080 (16:9)</option>
+            </select>
         </div>
         <div>
             <label for="video_af_mode">AF Mode:</label>
-            <input type="text" id="video_af_mode" value="Continous">
+            <select id="video_af_mode">
+                <option value="0">Manual</option>
+                <option value="1">Auto</option>
+                <option value="2">Continuous</option>
+            </select>
         </div>
         <div>
             <label for="video_bright">Brightness:</label>

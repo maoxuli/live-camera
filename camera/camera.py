@@ -102,10 +102,10 @@ class FrameBuffer(io.BufferedIOBase):
 # VideoServer works with one camera sensor, to manage the video streaming and snapshot. 
 # The parmaters of the camera/video is passed in with a config file. 
 
-# from picamera2 import Picamera2
-# from picamera2.encoders import JpegEncoder
-# from picamera2.outputs import FileOutput
-# import libcamera
+from picamera2 import Picamera2
+from picamera2.encoders import JpegEncoder
+from picamera2.outputs import FileOutput
+import libcamera
 
 @singleton 
 class VideoServer(object): 

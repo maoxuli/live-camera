@@ -1,0 +1,12 @@
+[Unit]
+Description=Live camera software system
+After=network.target
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecReload=/bin/kill -s -HUP $MAINPID
+ExecStart=/bin/bash /usr/local/bin/camera.sh
+
+[Install]
+WantedBy=multi-user.target
