@@ -1,6 +1,5 @@
 {
     "http_port": 8080, 
     "ws_port": 8090, 
-    "video_config": "video.json", 
-    "web_root": "www"
+    "video_config": "video.json"
 }

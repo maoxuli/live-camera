@@ -1,9 +1,9 @@
 #!/usr/bin/env python 
 
-import os 
 import time 
 import json 
 import asyncio
+import threading
 
 import logging
 logger = logging.getLogger(__name__)
@@ -24,17 +24,12 @@ def singleton(cls):
 # buffers to manage the images, which have same interface. 
  
 import io
-import threading
 from PIL import Image
 
-# When the camera is not ready or in error state, we will show a "logo" 
-# image. The logo image is refreshed in 1 fps, so could be "read" once 
-# or in a loop. 
+# When camera is not ready or in error state, we will show a "logo" image.  
 class LogoBuffer(io.BufferedIOBase): 
     def __init__(self, image_file = None): 
-        self._condition = threading.Condition()
         self._frame = None 
-        # load static image 
         if image_file: 
             logger.info(f"Load logo image from {image_file}")
             with open(image_file, "rb") as f: 
@@ -45,25 +40,23 @@ class LogoBuffer(io.BufferedIOBase):
             image = Image.new("RGB", (1280, 720), (0, 0, 0)) 
             image.save(buf, format='jpeg') 
             self._frame = buf.getvalue() 
-        logger.info(f"Image size: {len(self._frame)}")
-        # control frame rate 
-        self._start_timer() 
-
-    def _start_timer(self, timeout = 1): # 1 fps  
-        timer = threading.Timer(timeout, self._on_timer) 
-        timer.start()
-
-    def _on_timer(self): 
-        with self._condition: 
-            self._condition.notify_all() 
-        self._start_timer() 
+        logger.info(f"Logo image size: {len(self._frame)}")
 
     def read(self): 
-        with self._condition: 
-            self._condition.wait() 
-            return self._frame 
+        return self._frame 
 
-# Frame of video stream is supposed to be "write" and "read" in a loop. 
+# Snapshot "write" image which is read by web server. 
+class FrameBuffer(io.BufferedIOBase): 
+    def __init__(self): 
+        self._frame = None 
+
+    def write(self, buf): 
+        self._frame = buf 
+
+    def read(self): 
+        return self._frame 
+        
+# video stream is supposed to "write" and "read" in a loop. 
 class StreamBuffer(io.BufferedIOBase):
     def __init__(self):
         self._condition = threading.Condition()
@@ -86,19 +79,6 @@ class StreamBuffer(io.BufferedIOBase):
             self._last_read_t = time.time()
             return self._frame if self._condition.wait(1) else None 
 
-# Snapshot "write" and "read" a single image at once. 
-class FrameBuffer(io.BufferedIOBase): 
-    def __init__(self): 
-        self._lock = threading.Lock() 
-        self._frame = None 
-
-    def write(self, buf): 
-        with self._lock: 
-            self._frame = buf 
-
-    def read(self): 
-        with self._lock: 
-            return self._frame 
 
 # VideoServer works with one camera sensor, to manage the video streaming and snapshot. 
 # The parmaters of the camera/video is passed in with a config file. 
@@ -118,7 +98,9 @@ class VideoServer(object):
         assert(self._config is not None)
 
         # logo  
-        logo_file = self._config["logo_file"] if "logo_file" in self._config else None 
+        logo_file = None 
+        if "logo_file" in self._config: 
+            logo_file = self._config["logo_file"] 
         logger.info(f"{logo_file=}")
         self._logo_buffer = LogoBuffer(logo_file) 
 
@@ -215,7 +197,10 @@ class VideoServer(object):
     def stop(self):  
         logger.info("Stop video streaming")
         try:
-            self.picam2.stop_recording()  
+            self.picam2.stop_recording() 
+            self.picam2.stop() 
+            self.picam2.close() 
+            logger.info("Video streaming stopped")
         except Exception as e: 
             logger.warning(f"Failed stop video streaming: {e}")
 
@@ -223,7 +208,6 @@ class VideoServer(object):
 # Web server serves web pages, including the live video page, snapshot page, and admin page. 
 # It also handle the request of video stream and snapshot image. 
             
-import threading 
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler 
 
 @singleton 
@@ -308,7 +292,9 @@ class WebsocketServer(object):
     def __init__(self, port = 8090): 
         self._port = port 
         self._connections = set() 
-        self._server = None 
+        self._server = None
+        self._stop_event = None  
+        self._loop = None 
         self._thread = None 
 
     @property 
@@ -343,13 +329,6 @@ class WebsocketServer(object):
             logger.info(f"Remove connection from {connection.remote_address[0]}")
             self._connections.remove(connection)
 
-    def close_all_connections(self): 
-        logger.warning("Closing all connections")
-        for conn in self._connections: 
-            conn.close() 
-        self._connections.clear() 
-        logger.warning("All closed")
-
     # health check enpoint 
     async def health_check(self, connection, request):
         if request.path == "/healthz":
@@ -358,19 +337,12 @@ class WebsocketServer(object):
     def run_forever(self):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
-            loop = asyncio.get_event_loop()
-            loop.create_task(websockets.serve(self.handle_client, "", self.port, process_request=self.health_check))
-            loop.run_forever() 
-            logger.warning("Exit websocket server") 
+            self._loop = asyncio.get_running_loop() 
+            self._stop_event = asyncio.Event() 
+            self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check)
+            await self._stop_event.wait()
+            await self._server.wait_closed() 
         asyncio.run(_run())
-
-    #     self.loop = asyncio.get_running_loop()
-    #     self.stop_event = asyncio.Event()
-    #     self.server = await websockets.serve(self.handle, DOMAIN, PORT)
-    #     print('Server started')
-    #     await self.stop_event.wait()
-    #     print('Server stop')
-        
 
     def start(self): 
         if self._thread is None: 
@@ -381,65 +353,18 @@ class WebsocketServer(object):
     def stop(self): 
         if self._thread is not None: 
             logger.warning("Stop websocket server...")
-            loop = asyncio.get_event_loop()
-            loop.stop()
-            loop.close()
-            logger.warning("Waiting for thread join")
+            self._loop.call_soon_threadsafe(self._stop_event.set)
+            self._loop.call_soon_threadsafe(self._server.close)
             self._thread.join()
             self._thread = None 
             logger.warning("Websocket server stopped")
 
 
-    # def stop(self): # METHOD CALLED FROM ANOTHER THREAD
-    #     self.isrunning = False
-    #     if self.server:
-    #         self.loop.call_soon_threadsafe(self.stop_event.set)
-    #         self.loop.call_soon_threadsafe(self.server.close)
-    #     else:
-    #         print('Server closed')
-
-    # def process_message(self, message):
-    #     print(message)
-    #     return message
-
-    # async def handle(self, ws_client):
-    #     print('Listening')
-    #     async for message in ws_client:
-    #         await ws_client.send(message)
-
-    # async def main(self):
-    #     self.loop = asyncio.get_running_loop()
-    #     self.stop_event = asyncio.Event()
-    #     self.server = await websockets.serve(self.handle, DOMAIN, PORT)
-    #     print('Server started')
-    #     await self.stop_event.wait()
-    #     print('Server stop')
-
-    # def start(self):
-    #     asyncio.run(self.main())
-    #     print('Server closed')
-
-
-
-
-    #     loop = asyncio.get_event_loop()
-    #     loop.create_task(self.main())
-    #     loop.run_forever()  # wait for loop.stop() to terminate us
-
-    # def stop(self):
-    #     # terminate the loop
-    #     asyncio.get_event_loop().stop()
-    #     asyncio.get_event_loop().close()
-
 # start camera server(s) based on config file 
 import signal 
 
 def handle_signal(signum, frame):
-    logger.warning(f"Signal {signum} received")
-    # stop all servers 
-    WebServer().stop() 
-    WebsocketServer().stop() 
-    VideoServer().stop() 
+    logger.warning("Kill signal received")
 
 def main(config_file = None): 
     # default config 
@@ -447,12 +372,12 @@ def main(config_file = None):
         "ws_port": 8090, 
         "http_port": 8080, 
         "video_config": "video.json", 
-        "web_root": "www",
     }
     logger.info(f"Default camera config: {config}")
 
     # overwrite with config file 
     if config_file: 
+        logger.info(f"Load camera config from {config_file}")
         with open(config_file) as f: 
             config.update(json.load(f))
             logger.info(f"Updated camera config: {config}")
@@ -476,11 +401,11 @@ def main(config_file = None):
     web_server.start() 
 
     try: 
-        logger.warning("Waiting on singal...")
         signal.signal(signal.SIGINT, handle_signal) 
         signal.pause() 
     except Exception as e:
         logger.error(f"Error: {e}")
+    finally: 
         web_server.stop() 
         ws_server.stop() 
         video_server.stop() 
