@@ -354,7 +354,8 @@ class WebsocketServer(object):
             server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check) 
             await server.wait_closed() 
             logger.warning("Exit websocket server")
-        self._loop = asyncio.get_event_loop() 
+        self._loop = asyncio.new_event_loop() 
+        asyncio.set_event_loop(self._loop)
         self._loop.run_until_complete(_run())
 
     def start(self): 
