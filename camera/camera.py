@@ -308,7 +308,7 @@ class WebsocketServer(object):
     def __init__(self, port = 8090): 
         self._port = port 
         self._connections = set() 
-        self._loop = None 
+        self._server = None 
         self._thread = None 
 
     @property 
@@ -343,10 +343,11 @@ class WebsocketServer(object):
             logger.info(f"Remove connection from {connection.remote_address[0]}")
             self._connections.remove(connection)
 
-    def cloase_all_connections(self): 
+    def close_all_connections(self): 
         logger.warning("Closing all connections")
         for conn in self._connections: 
             conn.close() 
+        self._connections.clear() 
 
     # health check enpoint 
     async def health_check(self, connection, request):
@@ -356,12 +357,10 @@ class WebsocketServer(object):
     def run_forever(self):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
-            server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check) 
-            await server.wait_closed() 
-            logger.warning("Exit websocket server")
-        self._loop = asyncio.new_event_loop() 
-        asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(_run())
+            self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check) 
+            await self._server.wait_closed() 
+            logger.warning("Exit websocket server") 
+        asyncio.run(_run())
 
     def start(self): 
         if self._thread is None: 
@@ -373,8 +372,7 @@ class WebsocketServer(object):
         if self._thread is not None: 
             logger.warning("Stop websocket server...")
             self.close_all_connections() 
-            self._loop.stop()
-            self._loop.close()
+            self._server.close()
             self._thread.join()
             self._thread = None 
             logger.warning("Websocket server stopped")
