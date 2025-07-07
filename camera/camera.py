@@ -1,5 +1,6 @@
 #!/usr/bin/env python 
 
+import os 
 import time 
 import json 
 import asyncio
@@ -118,10 +119,13 @@ class VideoServer(object):
 
         # logo  
         logo_file = self._config["logo_file"] if "logo_file" in self._config else None 
+        if config_file and logo_file and not os.path.isabs(logo_file): 
+            logo_file = os.path.join(os.path.dirname(config_file), logo_file)
+        logger.info(f"{logo_file=}")
         self._logo_buffer = LogoBuffer(logo_file) 
 
         # stream  
-        # self.picam2 = Picamera2()
+        self.picam2 = Picamera2()
         self._stream_buffer = StreamBuffer()
         self._stream_config = None 
         self.config_stream() 
@@ -158,8 +162,8 @@ class VideoServer(object):
             resolution = self._config["resolution"] 
             logger.info(f"{resolution=}")
             self._stream_config = self.picam2.create_video_configuration(main={"size": resolution})
-            self.picam.configure(self._stream_config)
-            self.picam.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
+            self.picam2.configure(self._stream_config)
+            self.picam2.set_controls({"AfMode": libcamera.controls.AfModeEnum.Continuous})
         except Exception as e: 
             logger.warning(f"Failed config video streaming: {e}")
 
@@ -213,7 +217,7 @@ class VideoServer(object):
     def stop(self):  
         logger.info("Stop video streaming")
         try:
-            self.picam.stop_recording()  
+            self.picam2.stop_recording()  
         except Exception as e: 
             logger.warning(f"Failed stop video streaming: {e}")
 
@@ -358,6 +362,8 @@ async def main(config_file = None):
 
     # run video stream server 
     video_config = config["video_config"] 
+    if config_file and not os.path.isabs(video_config): 
+        video_config = os.path.join(os.path.dirname(config_file), video_config)
     logger.debug(f"{video_config=}") 
     video_server = VideoServer(video_config) 
     video_server.start() 

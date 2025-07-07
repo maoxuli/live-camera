@@ -28,6 +28,6 @@ sudo chmod a+x /usr/local/bin/camera.sh
 # systemd service for the camera software
 echo "Install camera service..." 
 sudo cp -f "${BASH_DIR}/camera.service" /etc/systemd/system/camera.service 
-sudo chmod 644 /etc/systemd./system/camera.service 
-sudo systemctl enable cmaera 
+sudo chmod 644 /etc/systemd/system/camera.service 
+sudo systemctl enable camera 
 sudo systemctl start camera 
