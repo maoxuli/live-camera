@@ -6,8 +6,12 @@ The "network" folder includes all configurations and scripts to make the "camera
 
 # Camera/video software 
 
-The "camera" folder includes the software/code for the camera system administration and the video streaming. The software was designed and implemented as a typical browser/server system. The webserver, websocket server, and video streaming server run on the Raspberry Pi system. The users connect to the camera system with browsers, complete system/video administration and watch live video with the web pages in the browser. 
+The "camera" folder includes the code and configuration for the camera software. The software was designed and implemented as a typical browser/server system. The webserver, websocket server, and video streaming server run on the Raspberry Pi system. The users connect to the camera system with web browsers, to complete administration and watch live video. 
 
-# System/software updates 
+# System service 
 
-The "updates" folder includes scripts to help remote/automatic software updates. Currently we only support the updates on application level, e.g. the updates for administration features and the web GUI, the updates for video streaming configuration and the web GUI. The lower level updates, e.g. camera server(s) updates, network updates, and OS updates, are not supported currently. 
+The "system" folder includes some scripts that install a systemd service, which enabled the camera software automatically launched with the system startup. 
+
+# Software updates 
+
+The "updates" folder includes scripts to help remote/automatic software updates. 
