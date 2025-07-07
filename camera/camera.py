@@ -212,7 +212,10 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 @singleton 
 class WebServer(object): 
-    class HttpRequestHandler(SimpleHTTPRequestHandler):
+    class HttpRequestHandler(SimpleHTTPRequestHandler): 
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs, directory="www")
+    
         def do_GET(self):
             print(self.path)
             if self.path == "/stream.mjpg":
