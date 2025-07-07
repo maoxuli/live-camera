@@ -348,6 +348,7 @@ class WebsocketServer(object):
         for conn in self._connections: 
             conn.close() 
         self._connections.clear() 
+        logger.warning("All closed")
 
     # health check enpoint 
     async def health_check(self, connection, request):
@@ -358,6 +359,7 @@ class WebsocketServer(object):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
             self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check) 
+            logger.info("Waiting on websocket server")
             await self._server.wait_closed() 
             logger.warning("Exit websocket server") 
         asyncio.run(_run())
@@ -371,8 +373,10 @@ class WebsocketServer(object):
     def stop(self): 
         if self._thread is not None: 
             logger.warning("Stop websocket server...")
-            self.close_all_connections() 
+            self.close_all_connections()
+            logger.warning("Websocket server close") 
             self._server.close()
+            logger.warning("Waiting for thread join")
             self._thread.join()
             self._thread = None 
             logger.warning("Websocket server stopped")
