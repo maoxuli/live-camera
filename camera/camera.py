@@ -45,7 +45,7 @@ class LogoBuffer(io.BufferedIOBase):
             image = Image.new("RGB", (1280, 720), (0, 0, 0)) 
             image.save(buf, format='jpeg') 
             self._frame = buf.getvalue() 
-        logger.debug(f"Image size: {len(self._frame)}")
+        logger.info(f"Image size: {len(self._frame)}")
         # control frame rate 
         self._start_timer() 
 
@@ -142,13 +142,13 @@ class VideoServer(object):
             "frame_rate": 30, 
             "af_mode": 0, 
         }
-        logger.debug(f"Default video config: {self._config}")
+        logger.info(f"Default video config: {self._config}")
         # overwrite with config file 
         if self._config_file: 
             logger.info(f"Load video config from {self._config_file}")
             with open(self._config_file) as f: 
                 self._config.update(json.load(f)) 
-                logger.debug(f"Updated video config: {self._config}")
+                logger.info(f"Updated video config: {self._config}")
 
     def save_config(self): 
         if self._config_file: 
@@ -276,9 +276,9 @@ class WebServer(object):
                     self.path = "/camera.html"
                 return super().do_GET()
 
-    def __init__(self, port = 8080): 
+    def __init__(self, port = 8080, root = None): 
         self._port = port 
-        self._httpd = ThreadingHTTPServer(("", self._port), self.HttpRequestHandler) 
+        self._httpd = ThreadingHTTPServer(("", self._port), self.HttpRequestHandler(directory=root)) 
         self._thread = None 
 
     @property 
@@ -326,8 +326,8 @@ class WebsocketServer(object):
 
     # handle client connection
     async def handle_client(self, connection):
-        logger.debug(f"Income connection from {connection.remote_address[0]}")
-        logger.debug(f"Request path: {connection.request.path}")
+        logger.info(f"Income connection from {connection.remote_address[0]}")
+        logger.info(f"Request path: {connection.request.path}")
         self._connections.add(connection)
         try:
             async for message in connection:
@@ -336,7 +336,7 @@ class WebsocketServer(object):
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
-            logger.debug(f"Remove connection from {connection.remote_address[0]}")
+            logger.info(f"Remove connection from {connection.remote_address[0]}")
             self._connections.remove(connection)
 
     # health check enpoint 
@@ -350,33 +350,38 @@ async def main(config_file = None):
     config = {
         "ws_port": 8090, 
         "http_port": 8080, 
-        "video_config": "video.json"
+        "video_config": "video.json", 
+        "web_root": "www",
     }
-    logger.debug(f"Default camera config: {config}")
+    logger.info(f"Default camera config: {config}")
 
     # overwrite with config file 
     if config_file: 
         with open(config_file) as f: 
             config.update(json.load(f))
-            logger.debug(f"Updated camera config: {config}")
+            logger.info(f"Updated camera config: {config}")
 
     # run video stream server 
     video_config = config["video_config"] 
     if config_file and not os.path.isabs(video_config): 
         video_config = os.path.join(os.path.dirname(config_file), video_config)
-    logger.debug(f"{video_config=}") 
+    logger.info(f"{video_config=}") 
     video_server = VideoServer(video_config) 
     video_server.start() 
 
     # run web server 
     http_port = config["http_port"]
-    logger.debug(f"{http_port=}") 
-    web_server = WebServer(http_port)
+    logger.info(f"{http_port=}") 
+    web_root = config["web_root"] 
+    if config_file and not os.path.isabs(web_root): 
+        web_root = os.path.join(os.path.dirname(config_file), web_root)
+    logger.info(f"{web_root=}") 
+    web_server = WebServer(http_port, web_root)
     web_server.start() 
 
     # run websocket server 
     ws_port = config["ws_port"] 
-    logger.debug(f"{ws_port=}")
+    logger.info(f"{ws_port=}")
     ws_server = WebsocketServer(ws_port)
     try:
         logger.info(f"Start websocket server at port: {ws_server._port}")
@@ -401,7 +406,7 @@ if __name__ == "__main__":
     # parser.print_help()
     args = parser.parse_args()
     logging.basicConfig(level=args.log_level, format="%(asctime)s - %(levelname)s - %(message)s")
-    logger.debug(vars(args))
+    logger.info(vars(args))
 
     # start camera server with config file   
     asyncio.run(main(args.config_file))
