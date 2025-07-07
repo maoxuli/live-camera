@@ -119,8 +119,6 @@ class VideoServer(object):
 
         # logo  
         logo_file = self._config["logo_file"] if "logo_file" in self._config else None 
-        if config_file and logo_file and not os.path.isabs(logo_file): 
-            logo_file = os.path.join(os.path.dirname(config_file), logo_file)
         logger.info(f"{logo_file=}")
         self._logo_buffer = LogoBuffer(logo_file) 
 
@@ -278,7 +276,7 @@ class WebServer(object):
 
     def __init__(self, port = 8080, root = None): 
         self._port = port 
-        self._httpd = ThreadingHTTPServer(("", self._port), self.HttpRequestHandler(directory=root)) 
+        self._httpd = ThreadingHTTPServer(("", self._port), self.HttpRequestHandler) 
         self._thread = None 
 
     @property 
@@ -363,8 +361,6 @@ async def main(config_file = None):
 
     # run video stream server 
     video_config = config["video_config"] 
-    if config_file and not os.path.isabs(video_config): 
-        video_config = os.path.join(os.path.dirname(config_file), video_config)
     logger.info(f"{video_config=}") 
     video_server = VideoServer(video_config) 
     video_server.start() 
@@ -372,11 +368,7 @@ async def main(config_file = None):
     # run web server 
     http_port = config["http_port"]
     logger.info(f"{http_port=}") 
-    web_root = config["web_root"] 
-    if config_file and not os.path.isabs(web_root): 
-        web_root = os.path.join(os.path.dirname(config_file), web_root)
-    logger.info(f"{web_root=}") 
-    web_server = WebServer(http_port, web_root)
+    web_server = WebServer(http_port)
     web_server.start() 
 
     # run websocket server 

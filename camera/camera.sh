@@ -4,6 +4,7 @@ set -e
 CAMERA_ROOT="/home/pi/live-camera/camera"
 echo "CAMERA_ROOT: ${CAMERA_ROOT}" 
 
-echo "Start camera software at ${CAMERA_ROOT}..." 
-python "${CAMERA_ROOT}/camera.py" -c "${CAMERA_ROOT}/camera.json" 
-echo "Camera software exit!" 
+echo "Start camera software..." 
+cd "${CAMERA_ROOT}" 
+python camera.py -c camera.json 
+echo "Exit camera software!" 
