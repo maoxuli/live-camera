@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=simple
 Restart=on-failure
+KillSignal=SIGINT 
 ExecReload=/bin/kill -s -HUP $MAINPID
 ExecStart=/bin/bash /usr/local/bin/camera.sh
 
