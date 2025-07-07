@@ -358,11 +358,19 @@ class WebsocketServer(object):
     def run_forever(self):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
-            self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check) 
-            logger.info("Websocket server wait for closed")
-            await self._server.wait_closed() 
+            loop = asyncio.get_event_loop()
+            loop.create_task(websockets.serve(self.handle_client, "", self.port, process_request=self.health_check))
+            loop.run_forever() 
             logger.warning("Exit websocket server") 
         asyncio.run(_run())
+
+    #     self.loop = asyncio.get_running_loop()
+    #     self.stop_event = asyncio.Event()
+    #     self.server = await websockets.serve(self.handle, DOMAIN, PORT)
+    #     print('Server started')
+    #     await self.stop_event.wait()
+    #     print('Server stop')
+        
 
     def start(self): 
         if self._thread is None: 
@@ -373,14 +381,55 @@ class WebsocketServer(object):
     def stop(self): 
         if self._thread is not None: 
             logger.warning("Stop websocket server...")
-            self.close_all_connections()
-            logger.warning("Websocket server close") 
-            self._server.close(close_connections=True)
+            loop = asyncio.get_event_loop()
+            loop.stop()
+            loop.close()
             logger.warning("Waiting for thread join")
             self._thread.join()
             self._thread = None 
             logger.warning("Websocket server stopped")
 
+
+    # def stop(self): # METHOD CALLED FROM ANOTHER THREAD
+    #     self.isrunning = False
+    #     if self.server:
+    #         self.loop.call_soon_threadsafe(self.stop_event.set)
+    #         self.loop.call_soon_threadsafe(self.server.close)
+    #     else:
+    #         print('Server closed')
+
+    # def process_message(self, message):
+    #     print(message)
+    #     return message
+
+    # async def handle(self, ws_client):
+    #     print('Listening')
+    #     async for message in ws_client:
+    #         await ws_client.send(message)
+
+    # async def main(self):
+    #     self.loop = asyncio.get_running_loop()
+    #     self.stop_event = asyncio.Event()
+    #     self.server = await websockets.serve(self.handle, DOMAIN, PORT)
+    #     print('Server started')
+    #     await self.stop_event.wait()
+    #     print('Server stop')
+
+    # def start(self):
+    #     asyncio.run(self.main())
+    #     print('Server closed')
+
+
+
+
+    #     loop = asyncio.get_event_loop()
+    #     loop.create_task(self.main())
+    #     loop.run_forever()  # wait for loop.stop() to terminate us
+
+    # def stop(self):
+    #     # terminate the loop
+    #     asyncio.get_event_loop().stop()
+    #     asyncio.get_event_loop().close()
 
 # start camera server(s) based on config file 
 import signal 
