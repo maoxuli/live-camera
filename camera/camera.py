@@ -274,7 +274,7 @@ class WebServer(object):
                     self.path = "/camera.html"
                 return super().do_GET()
 
-    def __init__(self, port = 8080, root = None): 
+    def __init__(self, port = 8080): 
         self._port = port 
         self._httpd = ThreadingHTTPServer(("", self._port), self.HttpRequestHandler) 
         self._thread = None 
@@ -307,8 +307,14 @@ from http import HTTPStatus
 class WebsocketServer(object): 
     def __init__(self, port = 8090): 
         self._port = port 
-        self._connections = set()  
+        self._connections = set() 
+        self._loop = None 
+        self._thread = None 
 
+    @property 
+    def port(self): 
+        return self._port  
+    
     async def broadcast(self, message, connection = None): 
         for conn in self._connections: 
             if conn != connection: 
@@ -342,8 +348,42 @@ class WebsocketServer(object):
         if request.path == "/healthz":
             return connection.respond(HTTPStatus.OK, "OK\n")
 
+    def run_forever(self):
+        logger.info(f"Start websocket server at port: {self.port}")
+        assert(self._loop is None) 
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        server = websockets.serve(self.handle_client, "", self.port, process_request=self.health_check)
+        self._loop.run_until_complete(server)
+        self._loop.run_forever() 
+        self._loop.close()
+        self._loop = None 
+
+    def start(self): 
+        if self._thread is None: 
+            self._thread = threading.Thread(target=self.run_forever)
+            self._thread.start()
+    
+    def stop(self): 
+        if self._thread is not None: 
+            logger.warning("Stop websocket server...")
+            self._loop.stop()
+            self._thread.join()
+            self._thread = None 
+            logger.warning("Websocket server stopped")
+
+
 # start camera server(s) based on config file 
-async def main(config_file = None): 
+import signal 
+
+def handle_signal(signum, frame):
+    logger.warning(f"Signal {signum} received")
+    # stop all servers 
+    WebServer().stop() 
+    WebsocketServer().stop() 
+    VideoServer().stop() 
+
+def main(config_file = None): 
     # default config 
     config = {
         "ws_port": 8090, 
@@ -365,33 +405,32 @@ async def main(config_file = None):
     video_server = VideoServer(video_config) 
     video_server.start() 
 
+    # run websocket server 
+    ws_port = config["ws_port"] 
+    logger.info(f"{ws_port=}")
+    ws_server = WebsocketServer(ws_port)
+    ws_server.start() 
+
     # run web server 
     http_port = config["http_port"]
     logger.info(f"{http_port=}") 
     web_server = WebServer(http_port)
     web_server.start() 
 
-    # run websocket server 
-    ws_port = config["ws_port"] 
-    logger.info(f"{ws_port=}")
-    ws_server = WebsocketServer(ws_port)
-    try:
-        logger.info(f"Start websocket server at port: {ws_server._port}")
-        async with websockets.serve(ws_server.handle_client, "", ws_server._port, 
-                                    process_request=ws_server.health_check) as server: 
-            await server.wait_closed()
-    except KeyboardInterrupt:
-        logger.warning("Exit web server...") 
-        await server.close() 
+    try: 
+        logger.warning("Waiting on singal...")
+        signal.signal(signal.SIGINT, handle_signal) 
+        signal.pause() 
     except Exception as e:
-        print(f"Websocket server exception: {e}")
-    finally: 
+        logger.error(f"Error: {e}")
         web_server.stop() 
+        ws_server.stop() 
         video_server.stop() 
+
 
 import argparse
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Camera Server")
+    parser = argparse.ArgumentParser(description="Live Camera System")
     parser.add_argument("--config_file", "-c", type=str, default="camera.json")
     parser.add_argument("--log_level", type=str, default="INFO")
 
@@ -401,4 +440,4 @@ if __name__ == "__main__":
     logger.info(vars(args))
 
     # start camera server with config file   
-    asyncio.run(main(args.config_file))
+    main(args.config_file)
