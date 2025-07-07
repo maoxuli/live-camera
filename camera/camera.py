@@ -308,8 +308,7 @@ class WebsocketServer(object):
     def __init__(self, port = 8090): 
         self._port = port 
         self._connections = set() 
-        self._loop = None 
-        self._thread = None 
+        self._server = None 
 
     @property 
     def port(self): 
@@ -348,28 +347,21 @@ class WebsocketServer(object):
         if request.path == "/healthz":
             return connection.respond(HTTPStatus.OK, "OK\n")
 
-    def run_forever(self):
-        logger.info(f"Start websocket server at port: {self.port}")
-        assert(self._loop is None) 
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        server = websockets.serve(self.handle_client, "", self.port, process_request=self.health_check)
-        self._loop.run_until_complete(server)
-        self._loop.run_forever() 
-        self._loop.close()
-        self._loop = None 
+    async def run_forever(self):
+        if self._server is None: 
+            logger.info(f"Start websocket server at port: {self.port}") 
+            self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check)
+            await self._server.serve_forever()
 
     def start(self): 
-        if self._thread is None: 
-            self._thread = threading.Thread(target=self.run_forever)
-            self._thread.start()
+        asyncio.run(self.run_forever())
     
     def stop(self): 
-        if self._thread is not None: 
+        if self._server is not None: 
             logger.warning("Stop websocket server...")
-            self._loop.stop()
-            self._thread.join()
-            self._thread = None 
+            self._server.close()
+            self._server.wait_closed()
+            self._server = None 
             logger.warning("Websocket server stopped")
 
 
