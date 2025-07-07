@@ -354,23 +354,23 @@ class WebsocketServer(object):
                 logger.info(f"Start websocket server at port: {self.port}") 
                 self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check)
                 await self._server.serve_forever()
+                await self._server.wait_closed() 
         asyncio.run(_run()) 
 
     def start(self): 
         if self._thread is None: 
-            logger.info(f"Start web server at port {self.port}") 
+            logger.info(f"Start webocket server at port {self.port}") 
             self._thread = threading.Thread(target=self.run_forever)
             self._thread.start()
     
     def stop(self): 
         if self._thread is not None: 
-            logger.warning("Stop web server...")
+            logger.warning("Stop websocket server...")
             self._server.close()
-            self._server.wait_closed() 
             self._server = None 
             self._thread.join()
             self._thread = None 
-            logger.warning("Web server stopped")
+            logger.warning("Websocket server stopped")
 
 
 # start camera server(s) based on config file 
