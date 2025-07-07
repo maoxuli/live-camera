@@ -343,6 +343,11 @@ class WebsocketServer(object):
             logger.info(f"Remove connection from {connection.remote_address[0]}")
             self._connections.remove(connection)
 
+    def cloase_all_connections(self): 
+        logger.warning("Closing all connections")
+        for conn in self._connections: 
+            conn.close() 
+
     # health check enpoint 
     async def health_check(self, connection, request):
         if request.path == "/healthz":
@@ -367,6 +372,7 @@ class WebsocketServer(object):
     def stop(self): 
         if self._thread is not None: 
             logger.warning("Stop websocket server...")
+            self.close_all_connections() 
             self._loop.stop()
             self._loop.close()
             self._thread.join()
