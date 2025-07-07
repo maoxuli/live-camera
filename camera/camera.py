@@ -359,7 +359,7 @@ class WebsocketServer(object):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
             self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check) 
-            logger.info("Waiting on websocket server")
+            logger.info("Websocket server wait for closed")
             await self._server.wait_closed() 
             logger.warning("Exit websocket server") 
         asyncio.run(_run())
@@ -375,7 +375,7 @@ class WebsocketServer(object):
             logger.warning("Stop websocket server...")
             self.close_all_connections()
             logger.warning("Websocket server close") 
-            self._server.close()
+            self._server.close(close_connections=True)
             logger.warning("Waiting for thread join")
             self._thread.join()
             self._thread = None 
