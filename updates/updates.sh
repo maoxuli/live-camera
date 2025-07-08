@@ -4,8 +4,11 @@ set -e
 # Helper script to update camera software, 
 # support checking, downloading, and installation of the software. 
 
-DEFAULT_URL="https://github.com/maoxuli/live-camera/releases"
-echo "DEFAULT_URL: ${DEFAULT_URL}" 
+VERSION_URL="https://raw.githubusercontent.com/maoxuli/live-camera/refs/heads/master"
+echo "VERSION_URL: ${VERSION_URL}" 
+
+PACKAGE_URL="https://github.com/maoxuli/live-camera/releases/download"
+echo "PACKAGE_URL: ${PACKAGE_URL}" 
 
 UPDATES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
 echo "UPDATE_DIR: ${UPDATES_DIR}" 
@@ -13,106 +16,114 @@ echo "UPDATE_DIR: ${UPDATES_DIR}"
 SOFTWARE_DIR="$(cd "${UPDATES_DIR}/.." && pwd)" 
 echo "SOFTWARE_DIR: ${SOFTWARE_DIR}" 
 
+VERSION_FILE="VERSION.txt"
+echo "VERSION_FILE: ${VERSION_FILE}" 
+
 # "1.1.1.1" is expanded to decimal number string "01010101"
 # so each version element support two decimal digits in [0, 99]  
 ver() {
     printf "%02d%02d%02d%02d" ${1//./ }
 }
 
-# download software versions file 
+# download version file 
 check_updates () {
-    UPDATES_URL=${1:-$DEFAULT_URL}
-    echo "Download software versions file from ${UPDATES_URL}"
+    UPDATES_URL=${1:-$VERSION_URL}
+    echo "Download version file from ${UPDATES_URL}"
 
-    # check if the file exist
-    VERSIONS=${2:-"versions.json"} 
-    echo "Checking software versions file ${VERSIONS}"
-    RESPONSE=$(curl --write-out '%{http_code}' --silent --output /dev/null "${UPDATES_URL}/${VERSIONS}")
-    if [ ${STATUSCODE} -ne 200 ]; then
-        echo "Failed checking software versions file: ${STATUSCODE}"
-        return 1
-    fi
-
-    echo "Download software vesions file ${VERSIONS}"
-    curl --output "${UPDATES_DIR}/${VERSIONS}" "${UPDATES_URL}/${VERSIONS}"
-
-    if [ ! -f "${UPDATES_DIR}/${VERSIONS}" ]; then 
-        echo "Failed download software versions file ${VERSIONS}" 
-        return 2 
+    echo "Downloading vesion file ${UPDATES_URL}/${VERSION_FILE}"
+    STATUS_CODE=$(curl -L --write-out '%{http_code}' --output "${UPDATES_DIR}/${VERSION_FILE}" "${UPDATES_URL}/${VERSION_FILE}")
+    echo "STATUS_CODE: ${STATUS_CODE}" 
+    if [ ${STATUS_CODE} -ne 200 ]; then
+        echo "Failed downloading version file: ${STATUS_CODE}" 
+        rm -f "${UPDATES_DIR}/${VERSION_FILE}"
+        return 1 
     fi 
-    echo "Downloaded software versions file ${VERSIONS}"
+    
+    echo "Downloaded version file ${UPDATES_DIR}/${VERSION_FILE}" 
+    source "${UPDATES_DIR}/${VERSION_FILE}" 
+    echo "CURRENT_VERSION: ${CURRENT_VERSION}"
+    echo "FALLBACK_VERSION: ${FALLBACK_VERSION}"
 } 
 
 # download software package  
 download_software () {
-    UPDATES_URL=${1:-$DEFAULT_URL}
-    echo "Download software package from ${UPDATES_URL}"
-
-    VERSION=${2:-""}
+    VERSION=${1:-""}
     if [ -z "${VERSION}" ]; then 
-        echo "Invalid software version ${VERSION}"
+        echo "Not set software version"
         return 1
     fi 
+    echo "Download software version ${VERSION}"
 
-    PACKAGE="camera-${VERSION}.tar.xz" 
-    echo "Checking software package ${PACKAGE}" 
-    RESPONSE=$(curl --write-out '%{http_code}' --silent --output /dev/null "${UPDATES_URL}/${PACKAGE}")
-    if [ ${STATUSCODE} -ne 200]; then
-        echo "Failed checking software package: ${STATUSCODE}"
+    UPDATES_URL=${2:-$PACKAGE_URL}
+    echo "Download software package from ${UPDATES_URL}"
+
+    # only keep latest download 
+    echo "Clean old software package(s) in ${UPDATES_DIR}" 
+    rm -f "${UPDATES_DIR}"/live-camera-*.tar.xz
+
+    PACKAGE="live-camera-${VERSION}.tar.xz" 
+    echo "Downloading software package ${UPDATES_URL}/v${VERSION}/${PACKAGE}" 
+    STATUS_CODE=$(curl -L --write-out '%{http_code}' --output "${UPDATES_DIR}/${PACKAGE}" "${UPDATES_URL}/v${VERSION}/${PACKAGE}")
+    echo "STATUS_CODE: ${STATUS_CODE}" 
+    if [ ${STATUS_CODE} -ne 200 ]; then
+        echo "Failed downloading software package: ${STATUS_CODE}" 
+        rm -f "${UPDATES_DIR}/${PACKAGE}"
         return 2
     fi
-
-    echo "Download software package ${PACKAGE}"
-    curl --output "${UPDATES_DIR}/${PACKAGE}" "${UPDATES_URL}/${PACKAGE}"
-
-    if [ ! -f "${UPDATES_DIR}/${PACKAGE}" ]; then 
-        echo "Failed download software package ${PACKAGE}" 
-        return 3 
-    fi 
-    echo "Downloaded software package ${PACKAGE}"
+    echo "Downloaded software package ${UPDATES_DIR}/${PACKAGE}"
 }
 
 # install the downloaded software 
 install_software () {
     VERSION=${1:-""}
     if [ -z "${VERSION}" ]; then 
-        echo "Invalid software version ${VERSION}"
+        echo "Not set software version"
         return 1
     fi 
+    echo "Install software version ${VERSION}"
 
-    PACKAGE="camera-${VERSION}.tar.xz" 
+    source "${SOFTWARE_DIR}/${VERSION_FILE}" 
+    echo "CURRENT_VERSION: ${CURRENT_VERSION}" 
+    if [ $(ver "${VERSION}") -eq $(ver "${CURRENT_VERSION}") ]; then 
+        echo "Current version is already ${VERSION}" 
+        return 0
+    fi 
+
+    PACKAGE="live-camera-${VERSION}.tar.xz" 
     if [ ! -f "${UPDATES_DIR}/${PACKAGE}" ]; then 
-        echo "Unavailable software package ${PACKAGE}"
-        return 2
+        download_software "$@" 
+        [ $? -ne 0 ] && return 2 
     fi 
 
     echo "Prepare software package ${PACKAGE}" 
-    tar -xzf "${UPDATES_DIR}/${PACKAGE}" -C "${UPDATES_DIR}" 
-    if [ ! -d "${UPDATES_DIR}/camera" ]; then 
+    mkdir -p "${UPDATES_DIR}/camera"
+    tar -xf "${UPDATES_DIR}/${PACKAGE}" -C "${UPDATES_DIR}/camera" 
+    if [ $? -ne 0 ]; then 
         echo "Failed prepare software package ${PACKAGE}" 
         return 3
-    fi 
+    fi  
 
-    if [ -d "${UPDATES_DIR}/network" ]; then 
+    if [ -d "${UPDATES_DIR}/camera/network" ]; then 
         echo "Install network package" 
         rm -rf "${SOFTWARE_DIR}/network" 
-        mv -f "${UPDATES_DIR}/network" "${SOFTWARE_DIR}/network" 
-        bash "${SOFTWARE_DIR}/network/network-init.sh"     
+        mv -f "${UPDATES_DIR}/camera/network" "${SOFTWARE_DIR}/network" 
+        # bash "${SOFTWARE_DIR}/network/network-init.sh" 
     fi 
 
-    if [ -d "${UPDATES_DIR}/system" ]; then 
+    if [ -d "${UPDATES_DIR}/camera/system" ]; then 
         echo "Install system package" 
         rm -rf "${SOFTWARE_DIR}/system" 
-        mv -f "${UPDATES_DIR}/system" "${SOFTWARE_DIR}/system" 
-        bash "${SOFTWARE_DIR}/system/camera-init.sh"     
+        mv -f "${UPDATES_DIR}/camera/system" "${SOFTWARE_DIR}/system" 
+        # bash "${SOFTWARE_DIR}/system/camera-init.sh"     
     fi 
 
-    if [ -d "${UPDATES_DIR}/camera" ]; then 
+    if [ -d "${UPDATES_DIR}/camera/camera" ]; then 
         echo "Install camera package" 
         rm -rf "${SOFTWARE_DIR}/camera" 
-        mv -f "${UPDATES_DIR}/camera" "${SOFTWARE_DIR}/camera"
+        mv -f "${UPDATES_DIR}/camera/camera" "${SOFTWARE_DIR}/camera"
     fi 
 
+    rm -rf "${UPDATES_DIR}/camera" 
     echo "Installed software package ${PACKAGE}"
 }
 
@@ -123,15 +134,15 @@ case "$1" in
     ;;
   check) 
     shift 
-    software_check "$@"
+    check_updates "$@"
     ;;
   download) 
     shift 
-    software_download "$@"
+    download_software "$@"
     ;;
   install) 
     shift 
-    software_install "$@"
+    install_software "$@"
     ;;
   *) 
     echo "Unknown command: $(basename $0) $1"
