@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Live Camera Settings</title>
-<link rel="stylesheet" href="css/bootstrap-icons.css" />
 <style>
 .container {
     position: relative;
@@ -64,54 +65,47 @@ button:hover {
 <body>
 <div class="container">
     <div class="section">
-        <h1>Ethernet</h1>
-        <div>
-            <label for="eth_ip">IP:</label>
-            <input type="text" id="eth_ip" value="192.168.1.205">
-        </div>
-        <div>
-            <label for="eth_status">Status:</label>
-            <input type="text" id="eth_status">
-        </div>
-    </div>
-    <div class="section">
-        <h1>WiFi Client</h1>
-        <div>
-            <label for="wifi_ssid">SSID:</label>
-            <input type="text" id="wifi_ssid" value="Guest">
-        </div>
-        <div>
-            <label for="wifi_pwd">Password:</label>
-            <input type="text" id="wifi_pwd">
-        </div>
-        <div>
-            <label for="wifi_status">Status:</label>
-            <input type="text" id="wifi_status" readonly>
-        </div>
-        <button id="wifi_setup" onclick="setup_wifi()">Apply</button>
-    </div>
-    <div class="section">
         <h1>WiFi AP</h1>
         <div>
-            <label for="ap_ssid">SSID:</label>
-            <input type="text" id="ap_ssid" value="Live-Camera">
+            <label for="ap_ssid">SSID</label>
+            <input type="text" id="ap_ssid" value="LiveCamera" readonly>
         </div>
         <div>
-            <label for="ap_pwd">Password:</label>
-            <input type="text" id="ap_pwd">
+            <label for="ap_pwd">Password</label>
+            <input type="text" id="ap_pwd" value="password" readonly>
         </div>
         <div>
-            <label for="ap_ip">IP:</label>
-            <input type="text" id="ap_ip" value="10.0.0.1">
+            <label for="ap_ip">IP</label>
+            <input type="text" id="ap_ip" value="10.0.0.1" readonly>
         </div>
-        <div>
-            <label for="ap_status">Status:</label>
-            <input type="text" id="ap_status" readonly>
-        </div>
-        <button id="ap_setup" onclick="setup_ap()">Apply</button>
+        <button id="update_ap" onclick="update_ap()">Update</button>
     </div>
     <div class="section">
-        <h1>Camera/Video</h1>
+        <h1>WiFi STA</h1>
+        <div>
+            <label for="wifi_ssid">SSID</label>
+            <input type="text" id="wifi_ssid" value="">
+        </div>
+        <div>
+            <label for="wifi_pwd">Password</label>
+            <input type="text" id="wifi_pwd" value="">
+        </div>
+        <div>
+            <label for="wifi_ip">IP</label>
+            <input type="text" id="wifi_ip" value="" readonly>
+        </div>
+        <button id="update_wifi" onclick="update_wifi()">Update</button>
+    </div>
+    <div class="section">
+        <h1>Ethernet</h1>
+        <div>
+            <label for="eth_ip">IP</label>
+            <input type="text" id="eth_ip" value="" readonly> 
+            <button id="check_ethernet" onclick="check_ethernet()">Check</button>
+        </div>
+    </div>
+    <div class="section">
+        <h1>Video Settings</h1>
         <div>
             <label for="video_res">Resolution</label>
             <select id="video_res">
@@ -136,37 +130,30 @@ button:hover {
             <label for="video_expos">Exposure Time:</label>
             <input type="text" id="video_expos" value="30">
         </div>
-        <div>
-            <label for="video_status">Status:</label>
-            <input type="text" id="video_status" readonly>
-        </div>
-        <button id="video_setup" onclick="setup_video()">Apply</button>
+        <button id="setup_camera" onclick="setup_camera()">Apply</button>
     </div>
     <div class="section">
-        <h1>Software</h1>
+        <h1>Software Updates</h1>
         <div>
-            <label for="installed_version">Installed Version:</label>
-            <input type="text" id="installed_version" value="0.1" readonly>
+            <label for="installed_version">Current Version</label>
+            <input type="text" id="installed_version" value="" readonly>
+            <button id="check_software" onclick="check_software_status()">Check</button>
         </div>
         <div>
-            <label for="latest_version">Latest Version:</label>
-            <input type="text" id="latest_version" value="0.1" readonly>
+            <label for="latest_version">Latest Version</label>
+            <input type="text" id="latest_version" value=""> 
+            <button id="install_latest" onclick="install_latest_software()">Install</button>
         </div>
         <div>
-            <label for="update_status">Status:</label>
-            <input type="text" id="update_status" readonly>
+            <label for="fallback_version">Fallback Version</label>
+            <input type="text" id="fallback_version" value=""> 
+            <button id="install_fallback" onclick="install_fallback_software()">Intall</button>
         </div>
-        <button id="update_check" onclick="check_update()">Check</button>
-        <button id="update_apply" onclick="apply_update()">Update</button>
     </div>
     <div class="section">
-        <h1>System</h1>
-        <div>
-            <label for="system_status">Status:</label>
-            <input type="text" id="system_status" readonly>
-        </div>
-        <button id="system_restart" onclick="restart_system()">Restart</button>
-        <button id="system_shutdown" onclick="shtudown_system()">Shutdown</button>
+        <h1>System Status</h1>
+        <button id="restart_system" onclick="restart_system()">Restart</button>
+        <button id="shutdow_system" onclick="shtudown_system()">Shutdown</button>
     </div>
 </div>
 <script>
@@ -174,39 +161,61 @@ button:hover {
     ws.onopen = (event) => {
         console.log("WebSocket connection opened:", event);
         // check wifi status 
-        check_wifi_status() 
+        check_wifi_ap() 
     };
+
     ws.onclose = (event) => {
         console.log("WebSocket connection closed:", event);
     };
+
     ws.onerror = (error) => {
         console.error("WebSocket error:", error);
     };
+
     ws.onmessage = (event) => {
-        var message = JSON.parse(event.data) 
-        // update wifi status 
-        if (message.method == "update_wifi_status") {
-            update_wifi_status(message);
+        var message = JSON.parse(event.data); 
+        var method = message.method;
+        switch (method) {
+            case "update_software_status": 
+                break; 
+            default: 
+                console.log("Unknown method: " + method) 
         }
     };
+
     function send_message(message) {
         var data = JSON.stringify(message); 
+        console.log("send: " + data)
         ws.send(data); 
     }
-    function update_wifi_status(message) {
-        assert(message.method == "update_wifi_status"); 
-        var ssid = message.params.ssid 
-        var status = message.params.status 
-        var statusElement = document.getElementById("wifistatus");  
-        statusElement.textContent = status; 
-    }
-    function check_wifi_status() {
+
+    function check_wifi_ap_status() {
         var message = {
-            "method": "check_wifi_status", 
+            "method": "check_wifi_ap_status", 
         };
         send_message(message);
     }
-    function apply_wifi_settings() {
+
+    function update_wifi_ap_status() {
+        assert(message.method == "update_wifi_ap_status"); 
+        var ssid = message.params.ssid 
+        var status = message.params.status 
+        document.getElementById("wifistatus").textContent = status; 
+    }
+
+    function setup_wifi_ap() {
+
+    }
+
+    function check_wifi_sta_status() {
+
+    }
+
+    function update_wifi_sta_status() {
+
+    }
+
+    function setup_wifi_sta() {
         var ssidElement = document.getElementById("wifissid");
         var pwdElement = document.getElementById("wifipwd");
         var ssid = ssidElement.value; 
@@ -219,6 +228,84 @@ button:hover {
             }, 
         };
         send_message(message);
+    }
+    
+    function check_ethernet_status() {
+
+    }
+
+    function update_ethernet_status() {
+
+    }
+
+    function check_video_status() {
+
+    }
+
+    function update_video_status() {
+
+    }
+
+    function setup_video() {
+
+    }
+
+    function update_software_status(message) {
+        if (message.method != "update_software_status") return; 
+        console.log("message: " + message)
+        var installed_version = message.params.installed_version; 
+        var latest_version = message.params.latest_version; 
+        var rollback_version = message.params.rollback_version;  
+        document.getElementById("installed_version").textContent = installed_version; 
+        document.getElementById("latest_version").textContent = latest_version; 
+        document.getElementById("rollback_version").textContent = rollback_version; 
+    }
+
+    function check_software_status() {
+        var message = {
+            "method": "check_software_status", 
+        };
+        send_message(message);
+    }
+
+    function install_latest_software() {
+        latest_version = document.getElementById("latest_version").value 
+        console.log("latest_version: " + latest_version)
+        var message = {
+            "method": "install_software", 
+            "params": {
+                "version": latest_version
+            }
+        };
+        send_message(message);
+    }
+    
+    function install_rollback_software() {
+        rollback_version = document.getElementById("rollback_version").value 
+        console.log("rollback_version: " + rollback_version)
+        var message = {
+            "method": "install_software", 
+            "params": {
+                "version": rollback_version
+            }
+        };
+        send_message(message);
+    }
+
+    function check_system_status() {
+
+    }
+
+    function update_system_status() {
+
+    }
+
+    function restart_system() {
+
+    }
+
+    function shutdown_system() {
+
     }
 </script>
 </body>

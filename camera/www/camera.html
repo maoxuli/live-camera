@@ -2,8 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,height==device-height,initial-scale=1">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Live Camera Video</title>
 <style>
 * {
@@ -91,19 +90,28 @@ function zoom_out() {
   var image = document.getElementById("image");
   var width = Math.ceil(image.offsetWidth * 0.9) 
   var height = Math.ceil(image.offsetHeight * 0.9) 
+  console.log("width: " + width)
+  console.log("height: " + height)
+  max_width = document.documentElement.clientWidth; 
   max_height = document.documentElement.clientHeight; 
+  console.log("max max_width: " + max_width)
   console.log("max height: " + max_height)
-  if (height > max_height - 50) {
-    controls.classList.add("overlay")
-    view.style.height = max_height + "px";
-    if (height < max_height) height = max_height;
+  if (width > max_width || height > max_height) {
+    if (height > max_height - 50) {
+      controls.classList.add("overlay")
+      view.style.height = max_height + "px";
+      if (height < max_height) height = max_height;
+    }
+    else {
+      controls.classList.remove("overlay")
+      view.style.height = "auto";
+    }
+    image.style.width = width + "px" 
+    image.style.height = height + "px"
   }
   else {
-    controls.classList.remove("overlay")
-    view.style.height = "auto";
+    fit_view() 
   }
-  image.style.width = width + "px" 
-  image.style.height = height + "px"
 }
 function fit_view() {
   console.log("fit view")

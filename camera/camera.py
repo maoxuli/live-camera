@@ -1,9 +1,11 @@
 #!/usr/bin/env python 
 
+import os 
 import time 
 import json 
 import asyncio
 import threading
+import subprocess
 
 import logging
 logger = logging.getLogger(__name__)
@@ -287,6 +289,120 @@ class WebServer(object):
 
 # Websocket server is used for bi-directional communications between camera and web pages.  
 
+# JSON-RPC 2.0 protocol 
+class JsonRpcHandler(object): 
+    def __init__(self): 
+        self.handlers = {
+            "check_software_versions": self.check_software_versions, 
+            "install_software": self.install_software, 
+            "check_system_status": self.check_system_status, 
+            "restart_system": self.restart_system, 
+            "shutdown_system": self.shutdown_system, 
+            "check_ethernet_status": self.check_ethernet_status, 
+            "setup_ethernet": self.setup_ethernet, 
+            "check_wifi_sta_status": self.check_wifi_sta_status, 
+            "setup_wifi_sta": self.setup_wifi_sta, 
+            "check_wifi_ap_status": self.check_wifi_ap_status, 
+            "setup_wifi_ap": self.setup_wifi_ap, 
+            "check_video_settings": self.check_video_settings, 
+            "setup_video": self.setup_video, 
+            "setup_video_resolution": self.setup_video_resolution, 
+            "setup_video_fps": self.setup_video_fps, 
+        } 
+
+    def handel_request(self, request): 
+        method = request["method"] if "method" in request else None 
+        params = request["params"] if "params" in request else None 
+        id = request["id"] if "id" in request else None 
+        if method in self.handelers: 
+            return self.handlers[method](params=params, params=params) 
+               
+    def check_software_versions(self, params = None, id = None): 
+        # try to check updates
+        camera_dir = os.path.dirname(os.path.abspath(__file__)) 
+        system_dir = os.path.dirname(camera_dir) 
+        updates_dir = os.path.join(system_dir, "updates") 
+        logger.info(f"{camera_dir=}")
+        logger.info(f"{system_dir=}") 
+        logger.info(f"{updates_dir=}") 
+        try:
+            updates_code = os.path.join(updates_dir, "updates.sh") 
+            logger.info(f"{updates_code=}")
+            result = subprocess.run([updates_code], check=True, capture_output=True, text=True)
+            logger.info(result.stdout)
+            logger.warning(result.stderr)
+        except subprocess.CalledProcessError as e:
+            logger.error(e)
+        except Exception as e: 
+            logger.error(e)
+
+        # get current versions 
+        installed_version = None 
+        latest_version = None 
+        rollback_version = None 
+        with open(os.path.join(system_dir, "VERSION.txt")) as f: 
+            for line in f: 
+                logger.info(f"{line=}")
+                key, value = line.split("=") 
+                if key == "CURRENT_VERSION": 
+                    installed_version = value 
+        with open(os.path.join(updates_dir, "VERSION.txt")) as f: 
+            for line in f: 
+                logger.info(f"{line=}")
+                key, value = line.split("=") 
+                if key == "CURRENT_VERSION": 
+                    latest_version = value 
+                elif key == "ROLLBACK_VERSION": 
+                    rollback_version = value 
+        logger.info(f"{installed_version=}")
+        logger.info(f"{latest_version=}")
+        logger.info(f"{rollback_version=}")
+
+        return {
+            "result": {
+                "installed_version": installed_version, 
+                "latest_version": latest_version, 
+                "rollback_version": rollback_version,
+            },
+            "id": id,
+        } 
+    
+    def install_software(self, params = None, id = None): 
+        version = params["version"] if "version" in params else None 
+        if version is None: 
+            return {
+                "error": {
+                    "code": -1, 
+                    "message": "Not set software version"
+                }
+            }  
+
+        # try to install software     
+        camera_dir = os.path.dirname(os.path.abspath(__file__)) 
+        system_dir = os.path.dirname(camera_dir) 
+        updates_dir = os.path.join(system_dir, "updates") 
+        logger.info(f"{camera_dir=}")
+        logger.info(f"{system_dir=}") 
+        logger.info(f"{updates_dir=}") 
+        try:
+            updates_code = os.path.join(updates_dir, "updates.sh") 
+            logger.info(f"{updates_code=}")
+            result = subprocess.run([updates_code, version], check=True, capture_output=True, text=True)
+            logger.info(result.stdout)
+            logger.warning(result.stderr) 
+            return self.check_software_versions(id)
+        except subprocess.CalledProcessError as e:
+            logger.error(e)
+        except Exception as e: 
+            logger.error(e)
+
+        return {
+            "error": {
+                "code": -1, 
+                "message": "Error install software"
+            }
+        }
+
 import websockets
 from http import HTTPStatus
 
@@ -295,6 +411,7 @@ class WebsocketServer(object):
     def __init__(self, port = 8090): 
         self._port = port 
         self._connections = set() 
+        self._handler = JsonRpcHandler() 
         self._server = None
         self._stop_event = None  
         self._loop = None 
@@ -313,9 +430,16 @@ class WebsocketServer(object):
         await connection.send(message)
 
     async def handle_message(self, message, connection): 
-        logger.info(f"Handle websocket message: {message}")
-        await self.respond("xxxxxxxxxxxxx", connection)
-        await self.broadcast("yyyyyyyyyyy")
+        logger.info(f"Received message: {message}")
+        try: 
+            request = json.loads(message) 
+            logger.info(f"Received requet: {request}")
+            response = self._handler.handle_requet(message)
+            if not response: 
+                response = {"error": {"code": -1, "message": "unknown error"}}
+            await self.respond(json.dumps(response), connection)
+        except Exception as e: 
+            logger.warning(f"Error handle message: {message}")
 
     # handle client connection
     async def handle_client(self, connection):
