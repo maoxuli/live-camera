@@ -99,40 +99,42 @@ install_software () {
     fi 
 
     echo "Prepare software package ${PACKAGE}" 
-    mkdir -p "${UPDATES_DIR}/camera"
-    tar -xf "${UPDATES_DIR}/${PACKAGE}" -C "${UPDATES_DIR}/camera" 
+    VERSION_DIR="${UPDATES_DIR}/live-camera-${VERSION}" 
+    mkdir -p "${VERSION_DIR}"
+    tar -xf "${UPDATES_DIR}/${PACKAGE}" -C "${VERSION_DIR}" 
     if [ $? -ne 0 ]; then 
         echo "Failed prepare software package ${PACKAGE}" >&2
         return 3
     fi  
 
-    if [ -d "${UPDATES_DIR}/camera/network" ]; then 
+    if [ -d "${VERSION_DIR}/network" ]; then 
         echo "Install network package" 
         rm -rf "${SOFTWARE_DIR}/network" 
-        mv -f "${UPDATES_DIR}/camera/network" "${SOFTWARE_DIR}/network" 
+        mv -f "${VERSION_DIR}/network" "${SOFTWARE_DIR}/network" 
         # bash "${SOFTWARE_DIR}/network/network-init.sh" 
     fi 
 
-    if [ -d "${UPDATES_DIR}/camera/system" ]; then 
+    if [ -d "${VERSION_DIR}/system" ]; then 
         echo "Install system package" 
         rm -rf "${SOFTWARE_DIR}/system" 
-        mv -f "${UPDATES_DIR}/camera/system" "${SOFTWARE_DIR}/system" 
+        mv -f "${VERSION_DIR}/system" "${SOFTWARE_DIR}/system" 
         # bash "${SOFTWARE_DIR}/system/camera-init.sh"     
     fi 
 
-    if [ -d "${UPDATES_DIR}/camera/updates" ]; then 
+    if [ -d "${VERSION_DIR}/updates" ]; then 
         echo "Install updates package" 
         rm -rf "${SOFTWARE_DIR}/updates" 
-        mv -f "${UPDATES_DIR}/camera/updates" "${SOFTWARE_DIR}/updates" 
+        mv -f "${VERSION_DIR}/updates" "${SOFTWARE_DIR}/updates" 
     fi 
 
-    if [ -d "${UPDATES_DIR}/camera/camera" ]; then 
+    if [ -d "${VERSION_DIR}/camera" ]; then 
         echo "Install camera package" 
         rm -rf "${SOFTWARE_DIR}/camera" 
-        mv -f "${UPDATES_DIR}/camera/camera" "${SOFTWARE_DIR}/camera"
+        mv -f "${VERSION_DIR}/camera" "${SOFTWARE_DIR}/camera"
     fi 
 
-    rm -rf "${UPDATES_DIR}/camera" 
+    mv -f "${VERSION_DIR}/VERSION.txt" "${SOFTWARE_DIR}/VERSION.txt"
+    rm -rf "${VERSION_DIR}" 
     echo "Installed software package ${PACKAGE}"
 }
 

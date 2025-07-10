@@ -264,64 +264,70 @@ button:hover {
         console.warn(error)
     }
 
-    function check_wifi_ap_status() {
-        var message = {
-            "method": "check_wifi_ap_status", 
-        };
-        send_message(message);
+    function check_ethernet_status() {
+        id++;
+        result_handlers.set(id, update_ethernet_status) 
+        var request = { "method": "check_ethernet_status", "id": id };
+        send_message(request);
     }
 
-    function update_wifi_ap_status() {
-        assert(message.method == "update_wifi_ap_status"); 
-        var ssid = message.params.ssid 
-        var status = message.params.status 
-        document.getElementById("wifistatus").textContent = status; 
+    function update_ethernet_status(ipv4) {
+        console.log(ipv4)
+        document.getElementById("ethernet_ip").value = ipv4.address; 
+    }
+
+    function setup_ethernet() {
+
+    }
+
+    function check_wifi_sta_status() {
+        id++;
+        result_handlers.set(id, update_wifi_sta_status) 
+        var request = { "method": "check_wifi_sta_status", "id": id };
+        send_message(request);
+    }
+
+    function update_wifi_sta_status(wifi) {
+        console.log(ipv4)
+    }
+
+    function setup_wifi_sta() {
+
+    }
+
+    function check_wifi_ap_status() {
+        id++;
+        result_handlers.set(id, update_wifi_ap_status) 
+        var request = { "method": "check_wifi_ap_status", "id": id };
+        send_message(request);
+    }
+
+    function update_wifi_ap_status(wifi) {
+        console.log(wifi)
+
     }
 
     function setup_wifi_ap() {
 
     }
 
-    function check_wifi_sta_status() {
+    function check_video_settings() {
 
     }
 
-    function update_wifi_sta_status() {
-
-    }
-
-    function setup_wifi_sta() {
-        var ssidElement = document.getElementById("wifissid");
-        var pwdElement = document.getElementById("wifipwd");
-        var ssid = ssidElement.value; 
-        var password = pwdElement.value; 
-        var message = {
-            "method": "apply_wifi_settings", 
-            "params": {
-                "ssid": ssid, 
-                "password": password
-            }, 
-        };
-        send_message(message);
-    }
-    
-    function check_ethernet_status() {
-
-    }
-
-    function update_ethernet_status() {
-
-    }
-
-    function check_video_status() {
-
-    }
-
-    function update_video_status() {
+    function update_video_settings(settings) {
 
     }
 
     function setup_video() {
+
+    }
+
+    function setup_video_resolution() {
+
+    }
+
+    function setup_video_fps() {
 
     }
 </script>
