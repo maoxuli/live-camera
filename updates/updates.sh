@@ -34,7 +34,7 @@ check_updates () {
     STATUS_CODE=$(curl -L --write-out '%{http_code}' --output "${UPDATES_DIR}/${VERSION_FILE}" "${UPDATES_URL}/${VERSION_FILE}")
     echo "STATUS_CODE: ${STATUS_CODE}" 
     if [ ${STATUS_CODE} -ne 200 ]; then
-        echo "Failed downloading version file: ${STATUS_CODE}" 
+        echo "Failed downloading version file: ${STATUS_CODE}" >&2  
         rm -f "${UPDATES_DIR}/${VERSION_FILE}"
         return 1 
     fi 
@@ -49,7 +49,7 @@ check_updates () {
 download_software () {
     VERSION=${1:-""}
     if [ -z "${VERSION}" ]; then 
-        echo "Not set software version"
+        echo "Not set software version" >&2
         return 1
     fi 
     echo "Download software version ${VERSION}"
@@ -66,7 +66,7 @@ download_software () {
     STATUS_CODE=$(curl -L --write-out '%{http_code}' --output "${UPDATES_DIR}/${PACKAGE}" "${UPDATES_URL}/v${VERSION}/${PACKAGE}")
     echo "STATUS_CODE: ${STATUS_CODE}" 
     if [ ${STATUS_CODE} -ne 200 ]; then
-        echo "Failed downloading software package: ${STATUS_CODE}" 
+        echo "Failed downloading software package: ${STATUS_CODE}" >&2 
         rm -f "${UPDATES_DIR}/${PACKAGE}"
         return 2
     fi
@@ -77,7 +77,7 @@ download_software () {
 install_software () {
     VERSION=${1:-""}
     if [ -z "${VERSION}" ]; then 
-        echo "Not set software version"
+        echo "Not set software version" >&2
         return 1
     fi 
     echo "Install software version ${VERSION}"
@@ -92,14 +92,17 @@ install_software () {
     PACKAGE="live-camera-${VERSION}.tar.xz" 
     if [ ! -f "${UPDATES_DIR}/${PACKAGE}" ]; then 
         download_software "$@" 
-        [ $? -ne 0 ] && return 2 
+        if [ $? -ne 0 ]; then 
+            echo "Error downloading software" >&2
+            return 2
+        fi 
     fi 
 
     echo "Prepare software package ${PACKAGE}" 
     mkdir -p "${UPDATES_DIR}/camera"
     tar -xf "${UPDATES_DIR}/${PACKAGE}" -C "${UPDATES_DIR}/camera" 
     if [ $? -ne 0 ]; then 
-        echo "Failed prepare software package ${PACKAGE}" 
+        echo "Failed prepare software package ${PACKAGE}" >&2
         return 3
     fi  
 
@@ -115,6 +118,12 @@ install_software () {
         rm -rf "${SOFTWARE_DIR}/system" 
         mv -f "${UPDATES_DIR}/camera/system" "${SOFTWARE_DIR}/system" 
         # bash "${SOFTWARE_DIR}/system/camera-init.sh"     
+    fi 
+
+    if [ -d "${UPDATES_DIR}/camera/updates" ]; then 
+        echo "Install updates package" 
+        rm -rf "${SOFTWARE_DIR}/updates" 
+        mv -f "${UPDATES_DIR}/camera/updates" "${SOFTWARE_DIR}/updates" 
     fi 
 
     if [ -d "${UPDATES_DIR}/camera/camera" ]; then 

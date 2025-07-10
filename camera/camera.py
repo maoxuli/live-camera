@@ -289,9 +289,20 @@ class WebServer(object):
 
 # Websocket server is used for bi-directional communications between camera and web pages.  
 
+def run_bash_script(command_args): 
+    print(f"{command_args=}")
+    result = subprocess.run(command_args, capture_output=True, text=True) 
+    print("stdout---")
+    print(result.stdout)
+    print("stderr---")
+    print(result.stderr) 
+    print(f"returncode: {result.returncode }")
+    return result.returncode 
+
 # JSON-RPC 2.0 protocol 
 class JsonRpcHandler(object): 
     def __init__(self): 
+        # supported commands 
         self.handlers = {
             "check_software_versions": self.check_software_versions, 
             "install_software": self.install_software, 
@@ -310,98 +321,137 @@ class JsonRpcHandler(object):
             "setup_video_fps": self.setup_video_fps, 
         } 
 
-    def handel_request(self, request): 
+        # paths 
+        self.camera_dir = os.path.dirname(os.path.abspath(__file__)) 
+        self.system_dir = os.path.dirname(self.camera_dir) 
+        self.updates_dir = os.path.join(self.system_dir, "updates") 
+        logger.info(f"{self.camera_dir=}")
+        logger.info(f"{self.system_dir=}") 
+        logger.info(f"{self.updates_dir=}") 
+
+    def handle_request(self, request): 
+        assert(isinstance(request, dict))
         method = request["method"] if "method" in request else None 
         params = request["params"] if "params" in request else None 
         id = request["id"] if "id" in request else None 
-        if method in self.handelers: 
-            return self.handlers[method](params=params, params=params) 
+        logger.info(f"{method=}")
+        logger.info(f"{params=}") 
+        logger.info(f"{id=}") 
+        if method in self.handlers: 
+            return self.handlers[method](params=params, id=id) 
+        else: 
+            logger.warning(f"Method not in list: {method}")
                
     def check_software_versions(self, params = None, id = None): 
-        # try to check updates
-        camera_dir = os.path.dirname(os.path.abspath(__file__)) 
-        system_dir = os.path.dirname(camera_dir) 
-        updates_dir = os.path.join(system_dir, "updates") 
-        logger.info(f"{camera_dir=}")
-        logger.info(f"{system_dir=}") 
-        logger.info(f"{updates_dir=}") 
-        try:
-            updates_code = os.path.join(updates_dir, "updates.sh") 
-            logger.info(f"{updates_code=}")
-            result = subprocess.run([updates_code], check=True, capture_output=True, text=True)
-            logger.info(result.stdout)
-            logger.warning(result.stderr)
-        except subprocess.CalledProcessError as e:
-            logger.error(e)
-        except Exception as e: 
-            logger.error(e)
+        logger.info(f"check_software_versions: {id}")
+        logger.info("Check software updates")
+        code = run_bash_script([os.path.join(self.updates_dir, "updates.sh"), "check"])
+        if code != 0: 
+            logger.warning("Failed checking software updates")
 
         # get current versions 
         installed_version = None 
         latest_version = None 
-        rollback_version = None 
-        with open(os.path.join(system_dir, "VERSION.txt")) as f: 
+        fallback_version = None 
+
+        version_file = os.path.join(self.system_dir, "VERSION.txt")
+        logger.info(f"Check installed version from {version_file}")
+        with open(version_file) as f: 
             for line in f: 
                 logger.info(f"{line=}")
                 key, value = line.split("=") 
                 if key == "CURRENT_VERSION": 
                     installed_version = value 
-        with open(os.path.join(updates_dir, "VERSION.txt")) as f: 
+                    break 
+
+        version_file = os.path.join(self.system_dir, "VERSION.txt")
+        logger.info(f"Check latest and fallback version from {version_file}")
+        with open(os.path.join(self.updates_dir, "VERSION.txt")) as f: 
             for line in f: 
                 logger.info(f"{line=}")
                 key, value = line.split("=") 
                 if key == "CURRENT_VERSION": 
                     latest_version = value 
-                elif key == "ROLLBACK_VERSION": 
-                    rollback_version = value 
+                elif key == "FALLBACK_VERSION": 
+                    fallback_version = value 
+
         logger.info(f"{installed_version=}")
         logger.info(f"{latest_version=}")
-        logger.info(f"{rollback_version=}")
+        logger.info(f"{fallback_version=}")
 
         return {
             "result": {
                 "installed_version": installed_version, 
                 "latest_version": latest_version, 
-                "rollback_version": rollback_version,
+                "fallback_version": fallback_version,
             },
             "id": id,
         } 
     
     def install_software(self, params = None, id = None): 
         version = params["version"] if "version" in params else None 
-        if version is None: 
-            return {
-                "error": {
-                    "code": -1, 
-                    "message": "Not set software version"
-                }
-            }  
+        logger.warning(f"Install software version {version}")
+        if version: 
+            code = run_bash_script([os.path.join(self.updates_dir, "updates.sh"), "install", version])
+            message = (
+                f"Successfully installed software version {version}" if code == 0 
+                else f"Error install software version {version}"
+            ) 
+            return {"error": {"code": code, "message": message}, "id": id} 
+        else: 
+            return { "error": {"code": -1, "message": "Not set software version"}, "id": id }  
 
-        # try to install software     
-        camera_dir = os.path.dirname(os.path.abspath(__file__)) 
-        system_dir = os.path.dirname(camera_dir) 
-        updates_dir = os.path.join(system_dir, "updates") 
-        logger.info(f"{camera_dir=}")
-        logger.info(f"{system_dir=}") 
-        logger.info(f"{updates_dir=}") 
-        try:
-            updates_code = os.path.join(updates_dir, "updates.sh") 
-            logger.info(f"{updates_code=}")
-            result = subprocess.run([updates_code, version], check=True, capture_output=True, text=True)
-            logger.info(result.stdout)
-            logger.warning(result.stderr) 
-            return self.check_software_versions(id)
-        except subprocess.CalledProcessError as e:
-            logger.error(e)
-        except Exception as e: 
-            logger.error(e)
+    def check_system_status(self, params = None, id = None): 
+        pass 
 
-        return {
-            "error": {
-                "code": -1, 
-                "message": "Error install software"
-            }
-        }
+    def restart_system(self, params = None, id = None): 
+        logger.warning("Reboot system")
+        code = run_bash_script(["sudo", "shutdown", "-r", "now"]) 
+        message = (
+            "Successfully restart the system" if code == 0 
+            else "Error start the system"
+        ) 
+        return {"error": {"code": code, "message": message}, "id": id}
+
+    def shutdown_system(self, params = None, id = None): 
+        logger.warning("Shutdown system")
+        code = run_bash_script(["sudo", "shutdown", "-h", "now"])  
+        message = (
+            "Successfully shutdown the system" if code == 0 
+            else "Error shutdown the system"
+        ) 
+        return {"error": {"code": code, "message": message}, "id": id}
+
+    def check_ethernet_status(self, params = None, id = None): 
+        pass 
+
+    def setup_ethernet(self, params = None, id = None): 
+        pass 
+
+    def check_wifi_sta_status(self, params = None, id = None): 
+        pass 
+
+    def setup_wifi_sta(self, params = None, id = None): 
+        pass 
+
+    def check_wifi_ap_status(self, params = None, id = None): 
+        pass 
+
+    def setup_wifi_ap(self, params = None, id = None): 
+        pass 
+
+    def check_video_settings(self, params = None, id = None): 
+        pass 
+
+    def setup_video(self, params = None, id = None): 
+        pass 
+
+    def setup_video_resolution(self, params = None, id = None): 
+        pass 
+
+    def setup_video_fps(self, params = None, id = None): 
+        pass 
+
 
 import websockets
 from http import HTTPStatus
@@ -411,7 +461,7 @@ class WebsocketServer(object):
     def __init__(self, port = 8090): 
         self._port = port 
         self._connections = set() 
-        self._handler = JsonRpcHandler() 
+        self._handler = None 
         self._server = None
         self._stop_event = None  
         self._loop = None 
@@ -421,12 +471,19 @@ class WebsocketServer(object):
     def port(self): 
         return self._port  
     
+    @property 
+    def handler(self): 
+        if self._handler is None: 
+            self._handler = JsonRpcHandler() 
+        return self._handler  
+    
     async def broadcast(self, message, connection = None): 
         for conn in self._connections: 
             if conn != connection: 
                 await conn.send(message)
 
     async def respond(self, message, connection): 
+        logger.info(f"Send message: {message}")
         await connection.send(message)
 
     async def handle_message(self, message, connection): 
@@ -434,17 +491,17 @@ class WebsocketServer(object):
         try: 
             request = json.loads(message) 
             logger.info(f"Received requet: {request}")
-            response = self._handler.handle_requet(message)
+            response = self.handler.handle_request(request)
             if not response: 
                 response = {"error": {"code": -1, "message": "unknown error"}}
+            logger.info(f"Send response: {response}")
             await self.respond(json.dumps(response), connection)
         except Exception as e: 
-            logger.warning(f"Error handle message: {message}")
+            logger.warning(f"Error: {e}")
 
     # handle client connection
     async def handle_client(self, connection):
         logger.info(f"Income connection from {connection.remote_address[0]}")
-        logger.info(f"Request path: {connection.request.path}")
         self._connections.add(connection)
         try:
             async for message in connection:
@@ -456,17 +513,12 @@ class WebsocketServer(object):
             logger.info(f"Remove connection from {connection.remote_address[0]}")
             self._connections.remove(connection)
 
-    # health check enpoint 
-    async def health_check(self, connection, request):
-        if request.path == "/healthz":
-            return connection.respond(HTTPStatus.OK, "OK\n")
-
     def run_forever(self):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
             self._loop = asyncio.get_running_loop() 
             self._stop_event = asyncio.Event() 
-            self._server = await websockets.serve(self.handle_client, "", self.port, process_request=self.health_check)
+            self._server = await websockets.serve(self.handle_client, "", self.port)
             await self._stop_event.wait()
             await self._server.wait_closed() 
         asyncio.run(_run())

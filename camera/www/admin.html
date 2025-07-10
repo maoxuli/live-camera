@@ -133,35 +133,35 @@ button:hover {
         <button id="setup_camera" onclick="setup_camera()">Apply</button>
     </div>
     <div class="section">
-        <h1>Software Updates</h1>
+        <h1>Software Versions</h1>
         <div>
             <label for="installed_version">Current Version</label>
             <input type="text" id="installed_version" value="" readonly>
-            <button id="check_software" onclick="check_software_status()">Check</button>
+            <button id="check_software_versions" onclick="check_software_versions()">Check</button>
         </div>
         <div>
             <label for="latest_version">Latest Version</label>
             <input type="text" id="latest_version" value=""> 
-            <button id="install_latest" onclick="install_latest_software()">Install</button>
+            <button id="install_latest_software" onclick="install_latest_software()">Install</button>
         </div>
         <div>
             <label for="fallback_version">Fallback Version</label>
             <input type="text" id="fallback_version" value=""> 
-            <button id="install_fallback" onclick="install_fallback_software()">Intall</button>
+            <button id="install_fallback_software" onclick="install_fallback_software()">Intall</button>
         </div>
     </div>
     <div class="section">
         <h1>System Status</h1>
         <button id="restart_system" onclick="restart_system()">Restart</button>
-        <button id="shutdow_system" onclick="shtudown_system()">Shutdown</button>
+        <button id="shutdow_system" onclick="shutdown_system()">Shutdown</button>
     </div>
 </div>
 <script>
-    var ws = new WebSocket("ws://localhost:8090/camera");
+    var hostname = window.location.hostname;
+    var url = "ws://" + hostname + ":8090/camera"
+    var ws = new WebSocket(url);
     ws.onopen = (event) => {
         console.log("WebSocket connection opened:", event);
-        // check wifi status 
-        check_wifi_ap() 
     };
 
     ws.onclose = (event) => {
@@ -173,20 +173,95 @@ button:hover {
     };
 
     ws.onmessage = (event) => {
-        var message = JSON.parse(event.data); 
-        var method = message.method;
-        switch (method) {
-            case "update_software_status": 
-                break; 
-            default: 
-                console.log("Unknown method: " + method) 
-        }
+        console.log("received: " + event.data) 
+        var response = JSON.parse(event.data); 
+        handle_response(response)
     };
 
     function send_message(message) {
         var data = JSON.stringify(message); 
         console.log("send: " + data)
         ws.send(data); 
+    }
+
+    // response table 
+    var id = 0; 
+    const result_handlers = new Map();
+    const error_handlers = new Map(); 
+
+    function handle_response(response) {
+        id = "id" in response ? response.id : null;  
+        if ("result" in response && result_handlers.has(id)) {
+            result_handlers.get(id)(response.result)
+            result_handlers.delete(id) 
+        }
+        if ("error" in response && error_handlers.has(id)) {
+            error_handlers.get(id)(response.error) 
+            error_handlers.delete(id)
+        }
+    }
+
+    function check_software_versions() {
+        id++;
+        result_handlers.set(id, update_software_versions) 
+        var request = { "method": "check_software_versions", "id": id };
+        send_message(request);
+    }
+
+    function update_software_versions(versions) {
+        console.log(versions)
+        document.getElementById("installed_version").value = versions.installed_version; 
+        document.getElementById("latest_version").value = versions.latest_version; 
+        document.getElementById("fallback_version").value = versions.fallback_version; 
+    }
+
+    function install_latest_software() {
+        id++;
+        error_handlers.set(id, popup_software_error) 
+        version = document.getElementById("latest_version").value 
+        console.log("latest_version: " + version)
+        var request = { "method": "install_software", "params": { "version": version }, "id": id };
+        send_message(request);
+    }
+    
+    function install_fallback_software() {
+        id++;
+        error_handlers.set(id, popup_software_error) 
+        version = document.getElementById("fallback_version").value 
+        console.log("fallback_version: " + version)
+        var request = { "method": "install_software", "params": { "version": version }, "id": id };
+        send_message(request);
+    }
+
+    function popup_software_error(error) {
+        console.warn(error)
+    }
+
+
+    function check_system_status() {
+
+    }
+
+    function update_system_status() {
+
+    }
+
+    function restart_system() {
+        id++;
+        error_handlers.set(id, popup_system_error) 
+        var request = { "method": "restart_system", "id": id };
+        send_message(request);
+    }
+
+    function shutdown_system() {
+        id++;
+        error_handlers.set(id, popup_system_error) 
+        var request = { "method": "shutdown_system", "id": id };
+        send_message(request);
+    }
+
+    function popup_system_error(error) {
+        console.warn(error)
     }
 
     function check_wifi_ap_status() {
@@ -247,64 +322,6 @@ button:hover {
     }
 
     function setup_video() {
-
-    }
-
-    function update_software_status(message) {
-        if (message.method != "update_software_status") return; 
-        console.log("message: " + message)
-        var installed_version = message.params.installed_version; 
-        var latest_version = message.params.latest_version; 
-        var rollback_version = message.params.rollback_version;  
-        document.getElementById("installed_version").textContent = installed_version; 
-        document.getElementById("latest_version").textContent = latest_version; 
-        document.getElementById("rollback_version").textContent = rollback_version; 
-    }
-
-    function check_software_status() {
-        var message = {
-            "method": "check_software_status", 
-        };
-        send_message(message);
-    }
-
-    function install_latest_software() {
-        latest_version = document.getElementById("latest_version").value 
-        console.log("latest_version: " + latest_version)
-        var message = {
-            "method": "install_software", 
-            "params": {
-                "version": latest_version
-            }
-        };
-        send_message(message);
-    }
-    
-    function install_rollback_software() {
-        rollback_version = document.getElementById("rollback_version").value 
-        console.log("rollback_version: " + rollback_version)
-        var message = {
-            "method": "install_software", 
-            "params": {
-                "version": rollback_version
-            }
-        };
-        send_message(message);
-    }
-
-    function check_system_status() {
-
-    }
-
-    function update_system_status() {
-
-    }
-
-    function restart_system() {
-
-    }
-
-    function shutdown_system() {
 
     }
 </script>
