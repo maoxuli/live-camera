@@ -8,15 +8,17 @@
 * {
   box-sizing: border-box;
 }
+html {
+  font-size: 16px;
+}
 body {
-  margin: 0; 
-  padding: 0; 
+    margin: 0;
+    padding: 0;
+    font-size: 1rem;
 }
 .container {
-  position: relative;
-  width: 100%;
-  max-height: 100vh;
   margin: auto; 
+  width: 100%;
   overflow: hidden;
 }
 .view {
@@ -33,13 +35,29 @@ body {
   position: relative;
 }
 .controls {
-  position: relative;
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
   overflow: hidden; 
-  text-align: center;
 }
+button {
+  flex-grow: 0;
+  flex-shrink: 0;
+  width:7rem; 
+  height:2rem;
+  font-size: 1rem; 
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.small_button {
+  width: 3rem;
+}
+
 .overlay {
   position: absolute;
-  height: 50px;
   right: 0;
   bottom: 0;
   left: 0;
@@ -52,8 +70,8 @@ body {
     <img id="image" style="width:100%;height:auto" src="stream.mjpg" onload="update_image_fit()">
   </div>
   <div id="controls" class="controls">
-    <button onclick="zoom_in()">Zoom In</button>
-    <button onclick="zoom_out()">Zoom Out</button>
+    <button class="small_button" onclick="zoom_in()">+</button>
+    <button class="small_button" onclick="zoom_out()">-</button>
     <button onclick="fit_view()">Fit View</button>
     <button onclick="snapshot()">Snapshot</button>
   </div>

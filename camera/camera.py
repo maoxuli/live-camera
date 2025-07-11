@@ -81,7 +81,6 @@ class StreamBuffer(io.BufferedIOBase):
             self._last_read_t = time.time()
             return self._frame if self._condition.wait(1) else None 
 
-
 # VideoServer works with one camera sensor, to manage the video streaming and snapshot. 
 # The parmaters of the camera/video is passed in with a config file. 
 
@@ -206,7 +205,6 @@ class VideoServer(object):
         except Exception as e: 
             logger.warning(f"Failed stop video streaming: {e}")
 
-
 # Web server serves web pages, including the live video page, snapshot page, and admin page. 
 # It also handle the request of video stream and snapshot image. 
             
@@ -286,9 +284,8 @@ class WebServer(object):
             self._thread = None 
             logger.warning("Web server stopped")
         
-
 # Websocket server is used for bi-directional communications between camera and web pages.  
-
+import websockets
 def run_bash_script(command_args): 
     print(f"{command_args=}")
     result = subprocess.run(command_args, capture_output=True, text=True) 
@@ -299,11 +296,15 @@ def run_bash_script(command_args):
     print(f"returncode: {result.returncode }")
     return result.returncode 
 
+# handle requests on websocket connection 
 # JSON-RPC 2.0 protocol 
-class JsonRpcHandler(object): 
-    def __init__(self): 
-        # supported commands 
-        self.handlers = {
+class WebsocketConnection(object): 
+    def __init__(self, websocket): 
+        # websocket 
+        self._websocket = websocket 
+
+        # supported reqeusts 
+        self._handlers = {
             "check_software_versions": self.check_software_versions, 
             "install_software": self.install_software, 
             "check_system_status": self.check_system_status, 
@@ -329,7 +330,31 @@ class JsonRpcHandler(object):
         logger.info(f"{self.system_dir=}") 
         logger.info(f"{self.updates_dir=}") 
 
-    def handle_request(self, request): 
+    # send back a message to client 
+    async def send_response(self, response): 
+        logger.info(f"Send response: {response}")
+        message = json.dumps(response)  
+        await self._websocket.send(message)
+
+    async def send_error_status(self, code = -1, message = "", id = None): 
+        logger.info(f"Send error status: {code} {message}")
+        await self.send_response({ "error": { "code": code, "message": message}, "id": id }) 
+
+    # handle requests until disconnected 
+    async def handle_requests(self): 
+        try: 
+            async for message in self._websocket: 
+                request = json.loads(message) 
+                logger.info(f"Received request: {request}")
+                await self.handle_request(request)
+            await self._websocket.wait_closed()
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.error(f"Connection closed: {e}")
+            raise 
+        except Exception as e: 
+            logger.warning(f"Error: {e}")
+
+    async def handle_request(self, request): 
         assert(isinstance(request, dict))
         method = request["method"] if "method" in request else None 
         params = request["params"] if "params" in request else None 
@@ -337,17 +362,19 @@ class JsonRpcHandler(object):
         logger.info(f"{method=}")
         logger.info(f"{params=}") 
         logger.info(f"{id=}") 
-        if method in self.handlers: 
-            return self.handlers[method](params=params, id=id) 
+        if method in self._handlers: 
+            await self._handlers[method](params=params, id=id) 
         else: 
-            logger.warning(f"Method not in list: {method}")
+            logger.warning(f"Method not in list: {self._handlers.keys()}") 
+            await self.send_error_status(-1, "Unsupported method", id)
                
-    def check_software_versions(self, params = None, id = None): 
+    async def check_software_versions(self, params = None, id = None): 
         logger.info(f"check_software_versions: {id}")
         logger.info("Check software updates")
         code = run_bash_script([os.path.join(self.updates_dir, "updates.sh"), "check"])
         if code != 0: 
             logger.warning("Failed checking software updates")
+            await self.send_error_status(-1, "Failed checking software updates", id)
 
         # get current versions 
         installed_version = None 
@@ -379,7 +406,7 @@ class JsonRpcHandler(object):
         logger.info(f"{latest_version=}")
         logger.info(f"{fallback_version=}")
 
-        return {
+        response =  {
             "result": {
                 "installed_version": installed_version, 
                 "latest_version": latest_version, 
@@ -387,8 +414,9 @@ class JsonRpcHandler(object):
             },
             "id": id,
         } 
+        await self.send_response(response) 
     
-    def install_software(self, params = None, id = None): 
+    async def install_software(self, params = None, id = None): 
         version = params["version"] if "version" in params else None 
         logger.warning(f"Install software version {version}")
         if version: 
@@ -397,120 +425,83 @@ class JsonRpcHandler(object):
                 f"Successfully installed software version {version}" if code == 0 
                 else f"Error install software version {version}"
             ) 
-            return {"error": {"code": code, "message": message}, "id": id} 
+            await self.send_error_status(code, message, id) 
         else: 
-            return { "error": {"code": -1, "message": "Not set software version"}, "id": id }  
+            await self.send_error_status(-1, "Not set software version", id)
 
     def check_system_status(self, params = None, id = None): 
         pass 
 
-    def restart_system(self, params = None, id = None): 
+    async def restart_system(self, params = None, id = None): 
         logger.warning("Reboot system")
         code = run_bash_script(["sudo", "shutdown", "-r", "now"]) 
         message = (
             "Successfully restart the system" if code == 0 
             else "Error start the system"
         ) 
-        return {"error": {"code": code, "message": message}, "id": id}
+        await self.send_error_status(code, message, id)
 
-    def shutdown_system(self, params = None, id = None): 
+    async def shutdown_system(self, params = None, id = None): 
         logger.warning("Shutdown system")
         code = run_bash_script(["sudo", "shutdown", "-h", "now"])  
         message = (
             "Successfully shutdown the system" if code == 0 
             else "Error shutdown the system"
         ) 
-        return {"error": {"code": code, "message": message}, "id": id}
+        await self.send_error_status(code, message, id)
 
-    def check_ethernet_status(self, params = None, id = None): 
+    async def check_ethernet_status(self, params = None, id = None): 
         pass 
 
-    def setup_ethernet(self, params = None, id = None): 
+    async def setup_ethernet(self, params = None, id = None): 
         pass 
 
-    def check_wifi_sta_status(self, params = None, id = None): 
+    async def check_wifi_sta_status(self, params = None, id = None): 
         pass 
 
-    def setup_wifi_sta(self, params = None, id = None): 
+    async def setup_wifi_sta(self, params = None, id = None): 
         pass 
 
-    def check_wifi_ap_status(self, params = None, id = None): 
+    async def check_wifi_ap_status(self, params = None, id = None): 
         pass 
 
-    def setup_wifi_ap(self, params = None, id = None): 
+    async def setup_wifi_ap(self, params = None, id = None): 
         pass 
 
-    def check_video_settings(self, params = None, id = None): 
+    async def check_video_settings(self, params = None, id = None): 
         pass 
 
-    def setup_video(self, params = None, id = None): 
+    async def setup_video(self, params = None, id = None): 
         pass 
 
-    def setup_video_resolution(self, params = None, id = None): 
+    async def setup_video_resolution(self, params = None, id = None): 
         pass 
 
-    def setup_video_fps(self, params = None, id = None): 
+    async def setup_video_fps(self, params = None, id = None): 
         pass 
 
-
-import websockets
-from http import HTTPStatus
 
 @singleton
 class WebsocketServer(object): 
     def __init__(self, port = 8090): 
-        self._port = port 
+        self.port = port 
         self._connections = set() 
-        self._handler = None 
         self._server = None
         self._stop_event = None  
         self._loop = None 
         self._thread = None 
 
-    @property 
-    def port(self): 
-        return self._port  
-    
-    @property 
-    def handler(self): 
-        if self._handler is None: 
-            self._handler = JsonRpcHandler() 
-        return self._handler  
-    
-    async def broadcast(self, message, connection = None): 
-        for conn in self._connections: 
-            if conn != connection: 
-                await conn.send(message)
-
-    async def respond(self, message, connection): 
-        logger.info(f"Send message: {message}")
-        await connection.send(message)
-
-    async def handle_message(self, message, connection): 
-        logger.info(f"Received message: {message}")
-        try: 
-            request = json.loads(message) 
-            logger.info(f"Received requet: {request}")
-            response = self.handler.handle_request(request)
-            if not response: 
-                response = {"error": {"code": -1, "message": "unknown error"}}
-            logger.info(f"Send response: {response}")
-            await self.respond(json.dumps(response), connection)
-        except Exception as e: 
-            logger.warning(f"Error: {e}")
-
     # handle client connection
-    async def handle_client(self, connection):
-        logger.info(f"Income connection from {connection.remote_address[0]}")
+    async def handler(self, websocket):
+        logger.info(f"Income connection from {websocket.remote_address[0]}") 
+        connection = WebsocketConnection(websocket)
         self._connections.add(connection)
         try:
-            async for message in connection:
-                await self.handle_message(message, connection)
-            await connection.wait_closed()
-        except websockets.exceptions.ConnectionClosed:
-            pass
+            await connection.handle_requests() 
+        except Exception as e: 
+            logger.warning(f"Error: {e}")
         finally:
-            logger.info(f"Remove connection from {connection.remote_address[0]}")
+            logger.info(f"Remove connection from {websocket.remote_address[0]}")
             self._connections.remove(connection)
 
     def run_forever(self):
@@ -518,7 +509,7 @@ class WebsocketServer(object):
             logger.info(f"Run webocket server at port {self.port}") 
             self._loop = asyncio.get_running_loop() 
             self._stop_event = asyncio.Event() 
-            self._server = await websockets.serve(self.handle_client, "", self.port)
+            self._server = await websockets.serve(self.handler, "0.0.0.0", self.port)
             await self._stop_event.wait()
             await self._server.wait_closed() 
         asyncio.run(_run())
@@ -536,8 +527,8 @@ class WebsocketServer(object):
             self._loop.call_soon_threadsafe(self._server.close)
             self._thread.join()
             self._thread = None 
+            self._connections.clear() 
             logger.warning("Websocket server stopped")
-
 
 # start camera server(s) based on config file 
 import signal 
@@ -588,7 +579,6 @@ def main(config_file = None):
         web_server.stop() 
         ws_server.stop() 
         video_server.stop() 
-
 
 import argparse
 if __name__ == "__main__":
