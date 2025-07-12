@@ -80,33 +80,38 @@ label, input {
 }
 
 .status-row {
-  align-items: center; /* Vertically align items */
-  padding: 10px;
-  margin-bottom: 5px;
-  border-radius: 5px;
-  color: white;
+    display: flex; 
+    align-items: center;
+    padding-left: 0.5rem; 
+    white-space: nowrap;
+    height: 2rem;
+    color: white; 
 }
 
 .success {
-  background-color: #4CAF50; /* Green */
+    background-color: #4CAF50; /* Green */
 }
 
 .warning {
-  background-color: #ff9800; /* Orange */
+    background-color: #ff9800; /* Orange */
 }
 
 .error {
-  background-color: #f44336; /* Red */
+    background-color: #f44336; /* Red */
 }
 
 .close-btn {
-  margin-left: 10px;
-  background-color: transparent;
-  border: none;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  font-size: 1.2em;
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin-left: auto;
+    width:6rem; 
+    height:2rem;
+    width: 2rem;
+    font-size: 1.5rem; 
+    font-weight: normal;
+    color: white;
+    border: none;
+    background-color: transparent;
 }
 </style>
 </head>
@@ -116,52 +121,44 @@ label, input {
         <div class="section_title">WiFi AP</div>
         <div id="wifi_ap_message"></div>
         <div class="section_row">
-            <label for="ap_ssid">SSID</label>
-            <input type="text" id="ap_ssid" value="LiveCamera" readonly>
+            <label for="wifi_ap_ssid">SSID</label>
+            <input type="text" id="wifi_ap_ssid" value="" readonly>
         </div>
         <div class="section_row">
-            <label for="ap_pwd">Password</label>
-            <input type="text" id="ap_pwd" value="password" readonly>
+            <label for="wifi_ap_password">Password</label>
+            <input type="text" id="wifi_ap_password" value="" readonly>
         </div>
         <div class="section_row">
-            <label for="ap_ip">IP</label>
-            <input type="text" id="ap_ip" value="10.0.0.1" readonly>
+            <label for="wifi_ap_ip">IP</label>
+            <input type="text" id="wifi_ap_ip" value="" readonly>
         </div>
         <div class="section_row">
-            <button id="update_ap" onclick="update_ap()">Update</button>
+            <button id="check_wifi_ap_status" onclick="check_wifi_ap_status()">Check</button>
         </div>
     </div>
     <div class="section">
         <div class="section_title">WiFi STA</div>
         <div id="wifi_sta_message"></div>
         <div class="section_row">
-            <label for="wifi_ssid">SSID</label>
-            <input type="text" id="wifi_ssid" value="">
+            <label for="wifi_sta_ssid">SSID</label>
+            <input type="text" id="wifi_sta_ssid" value="">
         </div>
         <div class="section_row">
-            <label for="wifi_pwd">Password</label>
-            <input type="text" id="wifi_pwd" value="">
+            <label for="wifi_sta_password">Password</label>
+            <input type="text" id="wifi_sta_password" value="">
         </div>
         <div class="section_row">
-            <label for="wifi_ip">IP</label>
-            <input type="text" id="wifi_ip" value="" readonly>
+            <label for="wifi_sta_ip">IP</label>
+            <input type="text" id="wifi_sta_ip" value="" readonly>
         </div>
         <div class="section_row">
-            <button id="update_wifi" onclick="update_wifi()">Update</button>
-        </div>
-    </div>
-    <div class="section">
-        <div class="section_title">Ethernet</div>
-        <div id="ethernet_message"></div>
-        <div class="section_row">
-            <label for="eth_ip">IP</label>
-            <input type="text" id="eth_ip" value="" readonly> 
-            <button id="check_ethernet" onclick="check_ethernet()">Check</button>
+            <button id="check_wifi_sta_status" onclick="check_wifi_sta_status()">Check</button>
+            <button id="setup_wifi_sta" onclick="setup_wifi_sta()">Update</button>
         </div>
     </div>
     <div class="section">
         <div class="section_title">Video Settings</div>
-        <div id="vodeo_message"></div>
+        <div id="video_message"></div>
         <div class="section_row">
             <label for="video_res">Resolution</label>
             <select id="video_res">
@@ -206,7 +203,7 @@ label, input {
         </div>
     </div>
     <div class="section">
-        <div class="section_title">System Status</div>
+        <div class="section_title">System Control</div>
         <div id="system_message"></div>
         <div class="section_row center">
             <button class="big_button" id="restart_system" onclick="restart_system()">Restart</button>
@@ -242,52 +239,86 @@ label, input {
         ws.send(data); 
     }
 
-    // response table 
-    var id = 0; 
+    // pre-defined command ID 
+    const CHECK_SOFTWARE_VERSIONS = 1;
+    const INSTALL_LATEST_SOFTWARE = 2;
+    const INSTALL_FALLBACK_SOFTWARE = 3;
+    
+    const RESTART_SYSTEM = 4; 
+    const SHUTDOWN_SYSTEM = 5;  
+
+    const CHECK_WIFI_AP_STATUS = 6;
+    const SETUP_WIFI_AP = 7;
+
+    const CHECK_WIFI_STA_STATUS = 8; 
+    const SETUP_WIFI_STA = 9; 
+
+    const CHECK_VIDEO_SETTINGS = 10; 
+    const SETUP_VIDEO = 11; 
+    const SETUP_VIDEO_RESOLUTION = 12; 
+    const SETUP_VIDEO_BRIGHTNESS = 13; 
+
+    // there will be a "result" handler for each command 
+    // which is set with the command functions 
     const result_handlers = new Map();
+
+    // error status will display in the section 
+    // corresponding to the command function 
     const error_handlers = new Map(); 
+
+    error_handlers.set(CHECK_SOFTWARE_VERSIONS, "software_message")
+    error_handlers.set(INSTALL_LATEST_SOFTWARE, "software_message")
+    error_handlers.set(INSTALL_FALLBACK_SOFTWARE, "software_message")
+
+    error_handlers.set(RESTART_SYSTEM, "system_message")
+    error_handlers.set(SHUTDOWN_SYSTEM, "system_message")
+
+    error_handlers.set(CHECK_WIFI_AP_STATUS, "wifi_ap_message")
+    error_handlers.set(SETUP_WIFI_AP, "wifi_ap_message")
+
+    error_handlers.set(CHECK_WIFI_STA_STATUS, "wifi_sta_message")
+    error_handlers.set(SETUP_WIFI_STA, "wifi_sta_message")
+
+    error_handlers.set(CHECK_VIDEO_SETTINGS, "video_message")
+    error_handlers.set(SETUP_VIDEO, "video_message")
+    error_handlers.set(SETUP_VIDEO_RESOLUTION, "video_message")
+    error_handlers.set(SETUP_VIDEO_BRIGHTNESS, "video_message")
 
     function handle_response(response) {
         id = "id" in response ? response.id : null;  
         if ("result" in response && result_handlers.has(id)) {
             result_handlers.get(id)(response.result)
-            result_handlers.delete(id) 
         }
         if ("error" in response && error_handlers.has(id)) {
-            error_handlers.get(id)(response.error) 
-            error_handlers.delete(id)
+            self.popup_message(error_handlers.get(id), response.error) 
         }
     }
 
-    function popup_message(element_id, type, message) {
+    function popup_message(element_id, error) {
         const statusMessagesContainer = document.getElementById(element_id);
-
-        // Create a new div element for the status row
+        message = error.message;  
+        code = error.code; 
+        type = code == 0 ? "success" : "error";
+        
         const statusRow = document.createElement('div');
-        statusRow.classList.add('status-row', type); // Add the base class and the type class
-        statusRow.textContent = message; // Set the message text
+        statusRow.classList.add('status-row', type); 
+        statusRow.textContent = message; 
 
-        // Create the close button
         const closeButton = document.createElement('button');
         closeButton.classList.add('close-btn');
-        closeButton.textContent = '×'; // Unicode for the 'times' or 'x' symbol
+        closeButton.textContent = '×'; 
 
-        // Attach an event listener to the close button
         closeButton.onclick = function() {
-            statusMessagesContainer.removeChild(statusRow); // Remove the entire row when the button is clicked
+            statusMessagesContainer.removeChild(statusRow); 
         };
 
-        // Append the close button to the status row
         statusRow.appendChild(closeButton);
-
-        // Append the status row to the container
         statusMessagesContainer.appendChild(statusRow);
     }
 
+    result_handlers.set(CHECK_SOFTWARE_VERSIONS, update_software_versions)
     function check_software_versions() {
-        id++;
-        result_handlers.set(id, update_software_versions) 
-        var request = { "method": "check_software_versions", "id": id };
+        var request = { "method": "check_software_versions", "id": CHECK_SOFTWARE_VERSIONS };
         send_message(request);
     }
 
@@ -298,28 +329,23 @@ label, input {
         document.getElementById("fallback_version").value = versions.fallback_version; 
     }
 
+    result_handlers.set(INSTALL_LATEST_SOFTWARE, update_software_versions)
     function install_latest_software() {
-        id++;
-        error_handlers.set(id, popup_software_error) 
         version = document.getElementById("latest_version").value 
         console.log("latest_version: " + version)
-        var request = { "method": "install_software", "params": { "version": version }, "id": id };
+        params = { "version": version }
+        var request = { "method": "install_software", "params": params, "id": INSTALL_LATEST_SOFTWARE };
         send_message(request);
     }
     
+    result_handlers.set(INSTALL_FALLBACK_SOFTWARE, update_software_versions)
     function install_fallback_software() {
-        id++;
-        error_handlers.set(id, popup_software_error) 
         version = document.getElementById("fallback_version").value 
         console.log("fallback_version: " + version)
-        var request = { "method": "install_software", "params": { "version": version }, "id": id };
+        params = { "version": version }
+        var request = { "method": "install_software", "params": params, "id": INSTALL_FALLBACK_SOFTWARE };
         send_message(request);
     }
-
-    function popup_software_error(error) {
-        console.warn(error)
-    }
-
 
     function check_system_status() {
 
@@ -330,64 +356,54 @@ label, input {
     }
 
     function restart_system() {
-        id++;
-        error_handlers.set(id, popup_system_error) 
-        var request = { "method": "restart_system", "id": id };
+        var request = { "method": "restart_system", "id": RESTART_SYSTEM };
         send_message(request);
     }
 
     function shutdown_system() {
-        id++;
-        error_handlers.set(id, popup_system_error) 
-        var request = { "method": "shutdown_system", "id": id };
+        var request = { "method": "shutdown_system", "id": SHUTDOWN_SYSTEM };
         send_message(request);
     }
 
-    function popup_system_error(error) {
-        console.warn(error)
-    }
-
-    function check_ethernet_status() {
-        id++;
-        result_handlers.set(id, update_ethernet_status) 
-        var request = { "method": "check_ethernet_status", "id": id };
-        send_message(request);
-    }
-
-    function update_ethernet_status(ipv4) {
-        console.log(ipv4)
-        document.getElementById("ethernet_ip").value = ipv4.address; 
-    }
-
-    function setup_ethernet() {
-
-    }
-
+    result_handlers.set(CHECK_WIFI_STA_STATUS, update_wifi_sta_status) 
     function check_wifi_sta_status() {
-        id++;
-        result_handlers.set(id, update_wifi_sta_status) 
-        var request = { "method": "check_wifi_sta_status", "id": id };
+        var request = { "method": "check_wifi_sta_status", "id": CHECK_WIFI_STA_STATUS };
         send_message(request);
     }
 
     function update_wifi_sta_status(wifi) {
-        console.log(ipv4)
+        console.log(wifi)
+        document.getElementById("wifi_sta_ssid").value = wifi.setup.ssid 
+        document.getElementById("wifi_sta_password").value = wifi.setup.password 
+        document.getElementById("wifi_sta_ip").value = wifi.address.addr  
     }
 
+    result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
     function setup_wifi_sta() {
-
+        ssid = document.getElementById("wifi_sta_ssid").value 
+        if (!ssid) {
+            popup_message("wifi_sta_message", {"code": -1, "message": "SSID is not set"})
+            return 
+        }
+        password = document.getElementById("wifi_sta_password").value 
+        console.log("WiFi STA SSID: " + ssid)
+        console.log("WiFi STA password: " + password)
+        params = { "ssid": ssid, "password": password}
+        var request = { "method": "setup_wifi_sta", "params": params, "id": SETUP_WIFI_STA };
+        send_message(request);
     }
 
+    result_handlers.set(CHECK_WIFI_AP_STATUS, update_wifi_ap_status) 
     function check_wifi_ap_status() {
-        id++;
-        result_handlers.set(id, update_wifi_ap_status) 
-        var request = { "method": "check_wifi_ap_status", "id": id };
+        var request = { "method": "check_wifi_ap_status", "id": CHECK_WIFI_AP_STATUS };
         send_message(request);
     }
 
     function update_wifi_ap_status(wifi) {
         console.log(wifi)
-
+        document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
+        document.getElementById("wifi_ap_password").value = wifi.setup.password 
+        document.getElementById("wifi_ap_ip").value = wifi.address.addr  
     }
 
     function setup_wifi_ap() {

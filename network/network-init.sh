@@ -9,6 +9,7 @@ sudo apt-get update \
         dhcpcd5 \
         hostapd \
         dnsmasq \
+        netifaces \
         netfilter-persistent \
         iptables-persistent \
     && sudo apt-get autoremove \

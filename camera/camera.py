@@ -286,15 +286,63 @@ class WebServer(object):
         
 # Websocket server is used for bi-directional communications between camera and web pages.  
 import websockets
+import netifaces
+
 def run_bash_script(command_args): 
-    print(f"{command_args=}")
-    result = subprocess.run(command_args, capture_output=True, text=True) 
-    print("stdout---")
-    print(result.stdout)
-    print("stderr---")
-    print(result.stderr) 
-    print(f"returncode: {result.returncode }")
-    return result.returncode 
+    try: 
+        print(f"{command_args=}")
+        result = subprocess.run(command_args, capture_output=True, text=True) 
+        print("stdout---")
+        print(result.stdout)
+        print("stderr---")
+        print(result.stderr) 
+        print(f"returncode: {result.returncode }")
+        return result.returncode 
+    except Exception as e: 
+        print(e) 
+        return -1 
+
+def get_network_addr(interface): 
+    try:
+        print("check interface addresses")
+        addresses = netifaces.ifaddresses(interface)
+        print("stdout---")
+        print(addresses)
+        if netifaces.AF_INET in addresses:
+            ipv4_addresses = addresses[netifaces.AF_INET]
+            if len(ipv4_addresses) > 0: 
+                return ipv4_addresses[0]
+    except Exception as e:
+        print("stderr---")
+        print(e)
+
+def find_key_value(filename, key): 
+    print(f"find {key} in {filename}")
+    with open(filename) as f:
+        for line in f: 
+            print(line)
+            parts = line.split("=") 
+            if len(parts) > 1 and key == parts[0].strip(): 
+                value = parts[1].strip().strip('\"') 
+                return value  
+
+def get_wifi_sta_id(): 
+    wpa_conf = "/etc/wpa_supplicant/wpa_supplicant.conf"
+    print(f"get wifi ssid and password from {wpa_conf}")
+    ssid = find_key_value(wpa_conf, "ssid") 
+    password = find_key_value(wpa_conf, "psk") 
+    print(f"{ssid=}")
+    print(f"{password=}")
+    return ssid, password 
+
+def get_wifi_ap_id(): 
+    apd_conf = "/etc/hostapd/hostapd.conf"
+    print(f"get wifi ssid and password from {apd_conf}")
+    ssid = find_key_value(apd_conf, "ssid") 
+    password = find_key_value(apd_conf, "wpa_passphrase") 
+    print(f"{ssid=}")
+    print(f"{password=}")
+    return ssid, password 
 
 # handle requests on websocket connection 
 # JSON-RPC 2.0 protocol 
@@ -305,17 +353,15 @@ class WebsocketConnection(object):
 
         # supported reqeusts 
         self._handlers = {
-            "check_software_versions": self.check_software_versions, 
-            "install_software": self.install_software, 
             "check_system_status": self.check_system_status, 
             "restart_system": self.restart_system, 
             "shutdown_system": self.shutdown_system, 
-            "check_ethernet_status": self.check_ethernet_status, 
-            "setup_ethernet": self.setup_ethernet, 
-            "check_wifi_sta_status": self.check_wifi_sta_status, 
-            "setup_wifi_sta": self.setup_wifi_sta, 
+            "check_software_versions": self.check_software_versions, 
+            "install_software": self.install_software, 
             "check_wifi_ap_status": self.check_wifi_ap_status, 
             "setup_wifi_ap": self.setup_wifi_ap, 
+            "check_wifi_sta_status": self.check_wifi_sta_status, 
+            "setup_wifi_sta": self.setup_wifi_sta, 
             "check_video_settings": self.check_video_settings, 
             "setup_video": self.setup_video, 
             "setup_video_resolution": self.setup_video_resolution, 
@@ -326,9 +372,11 @@ class WebsocketConnection(object):
         self.camera_dir = os.path.dirname(os.path.abspath(__file__)) 
         self.system_dir = os.path.dirname(self.camera_dir) 
         self.updates_dir = os.path.join(self.system_dir, "updates") 
+        self.network_dir = os.path.join(self.system_dir, "network") 
         logger.info(f"{self.camera_dir=}")
         logger.info(f"{self.system_dir=}") 
         logger.info(f"{self.updates_dir=}") 
+        logger.info(f"{self.network_dir=}") 
 
     # send back a message to client 
     async def send_response(self, response): 
@@ -367,7 +415,28 @@ class WebsocketConnection(object):
         else: 
             logger.warning(f"Method not in list: {self._handlers.keys()}") 
             await self.send_error_status(-1, "Unsupported method", id)
-               
+
+    def check_system_status(self, params = None, id = None): 
+        pass 
+
+    async def restart_system(self, params = None, id = None): 
+        logger.warning("restart_system")
+        code = run_bash_script(["sudo", "shutdown", "-r", "now"]) 
+        message = (
+            "Successfully restart the system" if code == 0 
+            else "Error start the system"
+        ) 
+        await self.send_error_status(code, message, id)
+
+    async def shutdown_system(self, params = None, id = None): 
+        logger.warning("shutdown_system")
+        code = run_bash_script(["sudo", "shutdown", "-h", "now"])  
+        message = (
+            "Successfully shutdown the system" if code == 0 
+            else "Error shutdown the system"
+        ) 
+        await self.send_error_status(code, message, id)
+   
     async def check_software_versions(self, params = None, id = None): 
         logger.info(f"check_software_versions: {id}")
         logger.info("Check software updates")
@@ -429,44 +498,77 @@ class WebsocketConnection(object):
         else: 
             await self.send_error_status(-1, "Not set software version", id)
 
-    def check_system_status(self, params = None, id = None): 
-        pass 
-
-    async def restart_system(self, params = None, id = None): 
-        logger.warning("Reboot system")
-        code = run_bash_script(["sudo", "shutdown", "-r", "now"]) 
-        message = (
-            "Successfully restart the system" if code == 0 
-            else "Error start the system"
-        ) 
-        await self.send_error_status(code, message, id)
-
-    async def shutdown_system(self, params = None, id = None): 
-        logger.warning("Shutdown system")
-        code = run_bash_script(["sudo", "shutdown", "-h", "now"])  
-        message = (
-            "Successfully shutdown the system" if code == 0 
-            else "Error shutdown the system"
-        ) 
-        await self.send_error_status(code, message, id)
-
-    async def check_ethernet_status(self, params = None, id = None): 
-        pass 
-
-    async def setup_ethernet(self, params = None, id = None): 
-        pass 
-
-    async def check_wifi_sta_status(self, params = None, id = None): 
-        pass 
-
-    async def setup_wifi_sta(self, params = None, id = None): 
-        pass 
-
     async def check_wifi_ap_status(self, params = None, id = None): 
-        pass 
+        logger.info("check_wifi_ap_status")
+        ssid, password = get_wifi_ap_id() 
+        if ssid is None: 
+            await self.send_error_status(-1, "WiFi AP is not setup", id)  
+        
+        address = get_network_addr("uap0")
+        if address is None: 
+            await self.send_error_status(-1, "Could not check WiFi IP. WiFi is not connected." , id)
+        
+        response = {
+            "result": {
+                "setup": { "ssid": ssid, "password": password }, 
+                "address": address
+            }, 
+            "id": id,
+        }
+        await self.send_response(response)
 
     async def setup_wifi_ap(self, params = None, id = None): 
-        pass 
+        logger.info(f"setup_wifi_ap: {params}") 
+        await self.send_error_status(-1, "Not implemented", id)
+
+    async def check_wifi_sta_status(self, params = None, id = None): 
+        logger.info("check_wifi_sta_status")
+        ssid, password = get_wifi_sta_id() 
+        if ssid is None: 
+            await self.send_error_status(-1, "WiFi STA is not setup", id)  
+        
+        address = get_network_addr("wlan0")
+        if address is None: 
+            await self.send_error_status(-1, "Could not check WiFi IP. WiFi is not connected." , id)
+        
+        response = {
+            "result": {
+                "setup": { "ssid": ssid, "password": password }, 
+                "address": address
+            }, 
+            "id": id,
+        }
+        await self.send_response(response)
+
+    async def setup_wifi_sta(self, params = None, id = None): 
+        logger.info(f"setup_wifi_sta: {params}") 
+        if "ssid" not in params: 
+            await self.send_error_status(-1, "SSID is not set for WiFi STA", id) 
+        else:  
+            ssid = params["ssid"] 
+            password = params["password"] if "password" in params else None 
+            logger.info("check current SSID and password")
+            current_ssid, current_password = get_wifi_sta_id() 
+            if ssid == current_ssid and password == current_password: 
+                await self.send_error_status(0, "There is no change for WiFi STA", id)
+
+            logger.info(f"Setup WiFi STA: {ssid} {password}") 
+            code = run_bash_script([os.path.join(self.network_dir, "setup-wifi-sta.sh"), ssid, password])
+            message = (
+                "Succeffully set SSID and password for WiFi STA" if code == 0 
+                else "Error setting SSID and password for WiFi STA"
+            )
+            await self.send_error_status(code, message, id) 
+
+            if code == 0: 
+                logger.info("restart network") 
+                await self.send_error_status(0, "WiFi will restart, please check it after a while.", id) 
+                code = run_bash_script([os.path.join(self.network_dir, "restart-wifi.sh")])
+                message = (
+                    "Succeffully restart WiFi network" if code == 0 
+                    else "Error restart WiFi network"
+                )
+                await self.send_error_status(code, message, id) 
 
     async def check_video_settings(self, params = None, id = None): 
         pass 
@@ -498,12 +600,13 @@ class WebsocketServer(object):
         self._connections.add(connection)
         try:
             await connection.handle_requests() 
+        except websockets.exceptions.ConnectionClosed as e: 
+            logger.error(f"Error: {e}")
+            logger.error(f"Remove connection from {websocket.remote_address[0]}")
+            self._connections.remove(connection)
         except Exception as e: 
             logger.warning(f"Error: {e}")
-        finally:
-            logger.info(f"Remove connection from {websocket.remote_address[0]}")
-            self._connections.remove(connection)
-
+            
     def run_forever(self):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 
