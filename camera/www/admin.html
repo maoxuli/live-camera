@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Live Camera Settings</title>
+<title>Live Camera Admin</title>
 <style>
 * {
     box-sizing: border-box;
@@ -17,7 +17,7 @@ body {
     font-size: 1rem;
 }
 .container {
-    padding: 0 1rem 2rem 1rem; 
+    padding: 0 0.5rem 2rem 0.5rem; 
     margin: auto;
     max-width: 100%; 
     overflow: hidden;
@@ -79,32 +79,34 @@ label, input {
     justify-content: center;
 }
 
-.status-row {
+.status_row {
     display: flex; 
     align-items: center;
-    padding-left: 0.5rem; 
-    white-space: nowrap;
-    height: 2rem;
-    color: white; 
+    height: 2.5rem;
+    border: 1px solid white; 
 }
-
 .success {
     background-color: #4CAF50; /* Green */
 }
-
 .warning {
     background-color: #ff9800; /* Orange */
 }
-
 .error {
     background-color: #f44336; /* Red */
 }
-
-.close-btn {
+.status_text {
+    flex-grow: 1;
+    flex-shrink: 1; 
+    padding: 0 0.5rem; 
+    min-width: 6rem;
+    height: 1.2rem; 
+    color: white; 
+    white-space: nowrap;
+    overflow: hidden;
+} 
+.status_btn {
     flex-grow: 0;
     flex-shrink: 0;
-    margin-left: auto;
-    width:6rem; 
     height:2rem;
     width: 2rem;
     font-size: 1.5rem; 
@@ -217,6 +219,12 @@ label, input {
     var ws = new WebSocket(url);
     ws.onopen = (event) => {
         console.log("WebSocket connection opened:", event);
+        // checking initial status 
+        check_wifi_ap_status() 
+        check_wifi_sta_status() 
+        check_video_settings() 
+        check_software_versions() 
+        check_system_status() 
     };
 
     ws.onclose = (event) => {
@@ -240,12 +248,12 @@ label, input {
     }
 
     // pre-defined command ID 
-    const CHECK_SOFTWARE_VERSIONS = 1;
-    const INSTALL_LATEST_SOFTWARE = 2;
-    const INSTALL_FALLBACK_SOFTWARE = 3;
-    
-    const RESTART_SYSTEM = 4; 
-    const SHUTDOWN_SYSTEM = 5;  
+    const RESTART_SYSTEM = 1; 
+    const SHUTDOWN_SYSTEM = 2; 
+
+    const CHECK_SOFTWARE_VERSIONS = 3;
+    const INSTALL_LATEST_SOFTWARE = 4;
+    const INSTALL_FALLBACK_SOFTWARE = 5;
 
     const CHECK_WIFI_AP_STATUS = 6;
     const SETUP_WIFI_AP = 7;
@@ -266,12 +274,12 @@ label, input {
     // corresponding to the command function 
     const error_handlers = new Map(); 
 
+    error_handlers.set(RESTART_SYSTEM, "system_message")
+    error_handlers.set(SHUTDOWN_SYSTEM, "system_message")
+
     error_handlers.set(CHECK_SOFTWARE_VERSIONS, "software_message")
     error_handlers.set(INSTALL_LATEST_SOFTWARE, "software_message")
     error_handlers.set(INSTALL_FALLBACK_SOFTWARE, "software_message")
-
-    error_handlers.set(RESTART_SYSTEM, "system_message")
-    error_handlers.set(SHUTDOWN_SYSTEM, "system_message")
 
     error_handlers.set(CHECK_WIFI_AP_STATUS, "wifi_ap_message")
     error_handlers.set(SETUP_WIFI_AP, "wifi_ap_message")
@@ -301,19 +309,42 @@ label, input {
         type = code == 0 ? "success" : "error";
         
         const statusRow = document.createElement('div');
-        statusRow.classList.add('status-row', type); 
-        statusRow.textContent = message; 
+        statusRow.classList.add('status_row', type); 
+
+        const statusText = document.createElement('div')
+        statusText.classList.add('status_text')
+        statusText.textContent = message; 
 
         const closeButton = document.createElement('button');
-        closeButton.classList.add('close-btn');
+        closeButton.classList.add('status_btn');
         closeButton.textContent = '×'; 
 
         closeButton.onclick = function() {
             statusMessagesContainer.removeChild(statusRow); 
         };
 
+        statusRow.appendChild(statusText);
         statusRow.appendChild(closeButton);
         statusMessagesContainer.appendChild(statusRow);
+    }
+
+
+    function check_system_status() {
+
+    }
+
+    function update_system_status() {
+
+    }
+
+    function restart_system() {
+        var request = { "method": "restart_system", "id": RESTART_SYSTEM };
+        send_message(request);
+    }
+
+    function shutdown_system() {
+        var request = { "method": "shutdown_system", "id": SHUTDOWN_SYSTEM };
+        send_message(request);
     }
 
     result_handlers.set(CHECK_SOFTWARE_VERSIONS, update_software_versions)
@@ -347,22 +378,22 @@ label, input {
         send_message(request);
     }
 
-    function check_system_status() {
-
-    }
-
-    function update_system_status() {
-
-    }
-
-    function restart_system() {
-        var request = { "method": "restart_system", "id": RESTART_SYSTEM };
+    result_handlers.set(CHECK_WIFI_AP_STATUS, update_wifi_ap_status) 
+    function check_wifi_ap_status() {
+        var request = { "method": "check_wifi_ap_status", "id": CHECK_WIFI_AP_STATUS };
         send_message(request);
     }
 
-    function shutdown_system() {
-        var request = { "method": "shutdown_system", "id": SHUTDOWN_SYSTEM };
-        send_message(request);
+    function update_wifi_ap_status(wifi) {
+        console.log(wifi)
+        ip = wifi.address ? wifi.address.addr : ""
+        document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
+        document.getElementById("wifi_ap_password").value = wifi.setup.password 
+        document.getElementById("wifi_ap_ip").value = ip  
+    }
+
+    function setup_wifi_ap() {
+
     }
 
     result_handlers.set(CHECK_WIFI_STA_STATUS, update_wifi_sta_status) 
@@ -372,10 +403,11 @@ label, input {
     }
 
     function update_wifi_sta_status(wifi) {
-        console.log(wifi)
+        console.log(wifi);
+        ip = wifi.address ? wifi.address.addr : ""
         document.getElementById("wifi_sta_ssid").value = wifi.setup.ssid 
         document.getElementById("wifi_sta_password").value = wifi.setup.password 
-        document.getElementById("wifi_sta_ip").value = wifi.address.addr  
+        document.getElementById("wifi_sta_ip").value = ip
     }
 
     result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
@@ -391,23 +423,6 @@ label, input {
         params = { "ssid": ssid, "password": password}
         var request = { "method": "setup_wifi_sta", "params": params, "id": SETUP_WIFI_STA };
         send_message(request);
-    }
-
-    result_handlers.set(CHECK_WIFI_AP_STATUS, update_wifi_ap_status) 
-    function check_wifi_ap_status() {
-        var request = { "method": "check_wifi_ap_status", "id": CHECK_WIFI_AP_STATUS };
-        send_message(request);
-    }
-
-    function update_wifi_ap_status(wifi) {
-        console.log(wifi)
-        document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
-        document.getElementById("wifi_ap_password").value = wifi.setup.password 
-        document.getElementById("wifi_ap_ip").value = wifi.address.addr  
-    }
-
-    function setup_wifi_ap() {
-
     }
 
     function check_video_settings() {
