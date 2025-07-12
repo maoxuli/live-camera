@@ -7,6 +7,7 @@ sudo apt-get update \
         python3-pillow \
         python3-websockets \
         python3-picamera2 \
+        python3-netifaces \
     && sudo apt-get autoremove \
     && sudo apt-get clean \
     && sudo rm -rf /var/lib/apt/lists/*
