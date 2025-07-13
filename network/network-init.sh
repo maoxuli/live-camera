@@ -25,10 +25,44 @@ BASH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "BASH_DIR: ${BASH_DIR}" 
 
 # wpa_supplicant is used to manage the WiFi client connection 
-# but it needs to be started after the ap, triggered by dhcpcd  
-echo "Configuring wpa_supplicant..." 
+# but it needs to be started after the ap, triggered by dhcpcd 
+# also trying to find current SSID/password to simplify the installation/update 
+# wpa_supplicant.conf required "ssid" and "psk" in double quotes  
+FILE="/etc/wpa_supplicant/wpa_supplicant.conf"
+echo "Find current SSID/password in ${FILE}"
+SSID=$(sudo grep "^[[:space:]]*ssid[[:space:]]*=" ${FILE} | cut -d'=' -f2)
+PSK=$(sudo grep "^[[:space:]]*psk[[:space:]]*=" ${FILE} | cut -d'=' -f2) 
+echo "SSID: ${SSID}" 
+echo "PSK: ${PSK}" 
+
+if [ -z "${SSID}" ]; then 
+    FILE=$(find "/etc/NetworkManager/system-connections" -name "*.nmconnections")
+    echo "FILE: ${FILE}" 
+    if [ -n "${FILE}" ]; then 
+        echo "Find current SSID/password in ${FILE}"
+        SSID=$(sudo grep "^[[:space:]]*ssid[[:space:]]*=" ${FILE} | cut -d'=' -f2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        PSK=$(sudo grep "^[[:space:]]*psk[[:space:]]*=" ${FILE} | cut -d'=' -f2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        SSID="\"${SSID}\""
+        PSK="\"${PSK}\""
+        echo "SSID: ${SSID}" 
+        echo "PSK: ${PSK}" 
+    fi 
+fi 
+
+if [ -n "${SSID}" ]; then 
+    cat "${BASH_DIR}/config/wpa_supplicant.conf"
+    echo "" 
+    echo "Replace SSID/password..." 
+    sed -i "s/^\([[:space:]]*ssid[[:space:]]*=\)[[:space:]]*.*/\1${SSID}/" "${BASH_DIR}/config/wpa_supplicant.conf"
+    sed -i "s/^\([[:space:]]*psk[[:space:]]*=\)[[:space:]]*.*/\1${PSK}/" "${BASH_DIR}/config/wpa_supplicant.conf"
+    cat "${BASH_DIR}/config/wpa_supplicant.conf"
+    echo "" 
+fi 
+
+echo "Configuring wpa_supplicant..."
 sudo cp -f ${BASH_DIR}/config/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf 
 sudo chmod 600 /etc/wpa_supplicant/wpa_supplicant.conf 
+echo "Disable wap_supplicant service" 
 sudo systemctl disable wpa_supplicant
 
 # hostapd is used to manage the WiFi AP connection 
@@ -69,7 +103,5 @@ sudo netfilter-persistent save
 
 # reboot system 
 echo "Configuration done!" 
-echo "Please restart system with: sudo reboot now" 
+echo "Please restart system with: sudo shutdown -r now" 
 # sudo shutdown -r now 
-
-sudo cp -a /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/

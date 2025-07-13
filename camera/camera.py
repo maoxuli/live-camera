@@ -291,18 +291,15 @@ import netifaces
 def run_bash_script(command_args): 
     logger.info(f"{command_args=}")
     result = subprocess.run(command_args, capture_output=True, text=True) 
-    logger.debug("stdout---")
-    logger.debug(f"\n{result.stdout}")
-    logger.debug("stderr---")
-    logger.debug(f"\n{result.stderr}") 
+    logger.debug(f"stdout---\n{result.stdout}")
+    logger.debug(f"stderr--\n{result.stderr}") 
     logger.info(f"returncode: {result.returncode }")
     return result.returncode 
 
 def get_network_addr(interface): 
     logger.info("check interface addresses")
     addresses = netifaces.ifaddresses(interface)
-    logger.debug("stdout---")
-    logger.debug(f"\n{addresses}")
+    logger.debug(f"stdout---\n{addresses}")
     if netifaces.AF_INET in addresses:
         ipv4_addresses = addresses[netifaces.AF_INET]
         if len(ipv4_addresses) > 0: 
@@ -365,7 +362,7 @@ class WebsocketConnection(object):
         self.software_dir = os.path.dirname(self.camera_dir) 
         self.network_dir = os.path.join(self.software_dir, "network") 
         self.system_dir = os.path.join(self.software_dir, "system") 
-        self.updates_dir = os.path.join(self.system_dir, "updates") 
+        self.updates_dir = os.path.join(self.software_dir, "updates") 
         logger.info(f"{self.camera_dir=}")
         logger.info(f"{self.software_dir=}") 
         logger.info(f"{self.network_dir=}") 
@@ -388,7 +385,7 @@ class WebsocketConnection(object):
             async for message in self._websocket: 
                 try: 
                     request = json.loads(message) 
-                    logger.info(f"received request: {request}")
+                    logger.info(f"Request received: {request}")
                     await self.handle_request(request)
                 except websockets.exceptions.ConnectionClosed: 
                     raise 
@@ -404,9 +401,9 @@ class WebsocketConnection(object):
         method = request["method"] if "method" in request else None 
         params = request["params"] if "params" in request else None 
         id = request["id"] if "id" in request else None 
-        logger.info(f"{method=}")
-        logger.info(f"{params=}") 
-        logger.info(f"{id=}") 
+        logger.debug(f"{method=}")
+        logger.debug(f"{params=}") 
+        logger.debug(f"{id=}") 
         if method in self._handlers: 
             await self._handlers[method](params=params, id=id) 
         else: 
@@ -478,7 +475,7 @@ class WebsocketConnection(object):
         try: 
             version_file = os.path.join(self.updates_dir, "VERSION.txt")
             logger.info(f"Check latest and fallback version from {version_file}")
-            with open(os.path.join(self.updates_dir, "VERSION.txt")) as f: 
+            with open(version_file) as f: 
                 for line in f: 
                     logger.info(f"{line=}")
                     key, value = line.split("=") 
@@ -505,21 +502,23 @@ class WebsocketConnection(object):
         await self.send_response(response) 
     
     async def install_software(self, params = None, id = None): 
+        logger.info("install_software")
         version = params["version"] if "version" in params else None 
-        logger.warning(f"Install software version {version}")
-        if version: 
-            try: 
-                code = run_bash_script([os.path.join(self.system_dir, "updates.sh"), "install", version])
-                message = (
-                    f"Successfully installed software version {version}" if code == 0 
-                    else f"Failed installing software version {version}"
-                ) 
-                await self.send_error_status(code, message, id) 
-            except Exception as e: 
-                logger.warning(f"Error install software version: {e}") 
-                await self.send_error_status(-1, f"Error to install software version {version}", id)
-        else: 
+        logger.info(f"{version=}")
+        if not version:
             await self.send_error_status(-1, "Software version is not set", id)
+            return 
+        try: 
+            logger.info(f"install software: verion={version}")
+            code = run_bash_script([os.path.join(self.system_dir, "updates.sh"), "install", version])
+            message = (
+                f"Successfully installed software: version={version}" if code == 0 
+                else f"Failed to install software: version={version}"
+            ) 
+            await self.send_error_status(code, message, id) 
+        except Exception as e: 
+            logger.warning(f"Error to install software: {e}") 
+            await self.send_error_status(-1, f"Error to install software: version={version}", id)            
 
     async def check_wifi_ap_status(self, params = None, id = None): 
         try: 
