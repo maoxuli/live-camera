@@ -588,7 +588,7 @@ class WebsocketConnection(object):
                 logger.info("check current SSID and password")
                 current_ssid, current_password = get_wifi_sta_id() 
                 if ssid == current_ssid and password == current_password: 
-                    await self.send_error_status(0, "No change for WiFi STA", id)
+                    await self.send_error_status(-1, "SSID or password for WiFi STA is not changed", id)
                     return 
             except Exception as e: 
                 logger.waning(f"Error to check wifi sta: {e}")

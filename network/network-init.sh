@@ -70,4 +70,6 @@ sudo netfilter-persistent save
 # reboot system 
 echo "Configuration done!" 
 echo "Please restart system with: sudo reboot now" 
-# sudo reboot now 
+# sudo shutdown -r now 
+
+sudo cp -a /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/

@@ -178,7 +178,11 @@ label, input {
             </select>
         </div>
         <div class="section_row">
-            <label for="video_bright">Brightness</label>
+            <label for="video_fps">Frame Rate [1-60]</label>
+            <input type="text" id="video_fps" value="1">
+        </div>
+        <div class="section_row">
+            <label for="video_bright">Brightness [0-1.0]</label>
             <input type="text" id="video_bright" value="1">
         </div>
         <div class="section_row">
@@ -186,7 +190,7 @@ label, input {
         </div>
     </div>
     <div class="section">
-        <div class="section_title">Software Versions</div>
+        <div class="section_title">Software Update</div>
         <div id="software_message"></div>
         <div class="section_row">
             <label for="installed_version">Current Version</label>
