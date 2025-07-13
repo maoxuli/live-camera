@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e 
 
-# Helper script to update camera software, 
+# Helper script to update the live camera software, 
 # support checking, downloading, and installation of the software. 
 
 VERSION_URL="https://raw.githubusercontent.com/maoxuli/live-camera/refs/heads/master"
@@ -10,11 +10,14 @@ echo "VERSION_URL: ${VERSION_URL}"
 PACKAGE_URL="https://github.com/maoxuli/live-camera/releases/download"
 echo "PACKAGE_URL: ${PACKAGE_URL}" 
 
-UPDATES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
-echo "UPDATE_DIR: ${UPDATES_DIR}" 
+SYSTEM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
+echo "SYSTEM_DIR: ${SYSTEM_DIR}" 
 
-SOFTWARE_DIR="$(cd "${UPDATES_DIR}/.." && pwd)" 
+SOFTWARE_DIR="$(cd "${SYSTEM_DIR}/.." && pwd)" 
 echo "SOFTWARE_DIR: ${SOFTWARE_DIR}" 
+
+UPDATES_DIR="$(cd "${SOFTWARE_DIR}/updates" && pwd)" 
+echo "UPDATES_DIR: ${UPDATES_DIR}" 
 
 VERSION_FILE="VERSION.txt"
 echo "VERSION_FILE: ${VERSION_FILE}" 
@@ -111,20 +114,14 @@ install_software () {
         echo "Install network package" 
         rm -rf "${SOFTWARE_DIR}/network" 
         mv -f "${VERSION_DIR}/network" "${SOFTWARE_DIR}/network" 
-        # bash "${SOFTWARE_DIR}/network/network-init.sh" 
+        bash "${SOFTWARE_DIR}/network/network-init.sh" 
     fi 
 
     if [ -d "${VERSION_DIR}/system" ]; then 
         echo "Install system package" 
         rm -rf "${SOFTWARE_DIR}/system" 
         mv -f "${VERSION_DIR}/system" "${SOFTWARE_DIR}/system" 
-        # bash "${SOFTWARE_DIR}/system/camera-init.sh"     
-    fi 
-
-    if [ -d "${VERSION_DIR}/updates" ]; then 
-        echo "Install updates package" 
-        rm -rf "${SOFTWARE_DIR}/updates" 
-        mv -f "${VERSION_DIR}/updates" "${SOFTWARE_DIR}/updates" 
+        bash "${SOFTWARE_DIR}/system/camera-init.sh"     
     fi 
 
     if [ -d "${VERSION_DIR}/camera" ]; then 

@@ -217,7 +217,7 @@ class WebServer(object):
             super().__init__(*args, **kwargs, directory="www")
     
         def do_GET(self):
-            print(self.path)
+            logger.info(f"web request for {self.path}")
             if self.path == "/stream.mjpg":
                 self.send_response(200)
                 self.send_header("Age", 0)
@@ -230,7 +230,7 @@ class WebServer(object):
                     while True: 
                         frame = video_server.stream.read()
                         if frame is None:
-                            logger.warning("Failed capture frame")
+                            logger.warning("failed capture live frame")
                             frame = video_server.logo.read() 
                         self.wfile.write(b"--FRAME\r\n")
                         self.send_header("Content-Type", "image/jpeg")
@@ -239,7 +239,7 @@ class WebServer(object):
                         self.wfile.write(frame)
                         self.wfile.write(b"\r\n")
                 except Exception as e:
-                    logger.warning(f"Error in stream: {e}") 
+                    logger.warning(f"error for live video: {e}") 
                     self.send_error(404)
             elif self.path == "/snapshot.jpg":
                 self.send_response(200)
@@ -248,13 +248,13 @@ class WebServer(object):
                     video_server = VideoServer() 
                     image = video_server.snapshot.read()
                     if image is None: 
-                        logger.warning("Failed capture snapshot")
+                        logger.warning("failed capture snapshot")
                         image = video_server.logo.read() 
                     self.send_header("Content-Length", len(image))
                     self.end_headers() 
                     self.wfile.write(image)
                 except Exception as e:
-                    logger.warning(f"Error in snapshot: {e}")
+                    logger.warning(f"error for snapshot: {e}")
                     self.send_error(404)
             else:
                 if self.path == "/": 
@@ -272,47 +272,47 @@ class WebServer(object):
 
     def start(self): 
         if self._thread is None: 
-            logger.info(f"Start web server at port {self.port}") 
+            logger.info(f"start web server at port {self.port}") 
             self._thread = threading.Thread(target=self._httpd.serve_forever)
             self._thread.start()
 
     def stop(self): 
         if self._thread is not None: 
-            logger.warning("Stop web server...")
+            logger.warning("stop web server...")
             self._httpd.shutdown()
             self._thread.join()
             self._thread = None 
-            logger.warning("Web server stopped")
+            logger.warning("web server stopped")
         
 # Websocket server is used for bi-directional communications between camera and web pages.  
 import websockets
 import netifaces
 
 def run_bash_script(command_args): 
-    print(f"{command_args=}")
+    logger.info(f"{command_args=}")
     result = subprocess.run(command_args, capture_output=True, text=True) 
-    print("stdout---")
-    print(result.stdout)
-    print("stderr---")
-    print(result.stderr) 
-    print(f"returncode: {result.returncode }")
+    logger.debug("stdout---")
+    logger.debug(f"\n{result.stdout}")
+    logger.debug("stderr---")
+    logger.debug(f"\n{result.stderr}") 
+    logger.info(f"returncode: {result.returncode }")
     return result.returncode 
 
 def get_network_addr(interface): 
-    print("check interface addresses")
+    logger.info("check interface addresses")
     addresses = netifaces.ifaddresses(interface)
-    print("stdout---")
-    print(addresses)
+    logger.debug("stdout---")
+    logger.debug(f"\n{addresses}")
     if netifaces.AF_INET in addresses:
         ipv4_addresses = addresses[netifaces.AF_INET]
         if len(ipv4_addresses) > 0: 
+            logger.info(ipv4_addresses)
             return ipv4_addresses[0]
 
 def find_key_value(filename, key): 
-    print(f"find {key} in {filename}")
     with open(filename) as f:
         for line in f: 
-            print(line)
+            logger.debug(line)
             parts = line.split("=") 
             if len(parts) > 1 and key == parts[0].strip(): 
                 value = parts[1].strip().strip('\"') 
@@ -320,20 +320,20 @@ def find_key_value(filename, key):
 
 def get_wifi_sta_id(): 
     wpa_conf = "/etc/wpa_supplicant/wpa_supplicant.conf"
-    print(f"get wifi ssid and password from {wpa_conf}")
+    logger.info(f"get wifi ssid and password from {wpa_conf}")
     ssid = find_key_value(wpa_conf, "ssid") 
     password = find_key_value(wpa_conf, "psk") 
-    print(f"{ssid=}")
-    print(f"{password=}")
+    logger.info(f"{ssid=}")
+    logger.info(f"{password=}")
     return ssid, password 
 
 def get_wifi_ap_id(): 
     apd_conf = "/etc/hostapd/hostapd.conf"
-    print(f"get wifi ssid and password from {apd_conf}")
+    logger.info(f"get wifi ssid and password from {apd_conf}")
     ssid = find_key_value(apd_conf, "ssid") 
     password = find_key_value(apd_conf, "wpa_passphrase") 
-    print(f"{ssid=}")
-    print(f"{password=}")
+    logger.info(f"{ssid=}")
+    logger.info(f"{password=}")
     return ssid, password 
 
 # handle requests on websocket connection 
@@ -362,13 +362,15 @@ class WebsocketConnection(object):
 
         # paths 
         self.camera_dir = os.path.dirname(os.path.abspath(__file__)) 
-        self.system_dir = os.path.dirname(self.camera_dir) 
+        self.software_dir = os.path.dirname(self.camera_dir) 
+        self.network_dir = os.path.join(self.software_dir, "network") 
+        self.system_dir = os.path.join(self.software_dir, "system") 
         self.updates_dir = os.path.join(self.system_dir, "updates") 
-        self.network_dir = os.path.join(self.system_dir, "network") 
         logger.info(f"{self.camera_dir=}")
+        logger.info(f"{self.software_dir=}") 
+        logger.info(f"{self.network_dir=}") 
         logger.info(f"{self.system_dir=}") 
         logger.info(f"{self.updates_dir=}") 
-        logger.info(f"{self.network_dir=}") 
 
     # send back a message to client 
     async def send_response(self, response): 
@@ -444,10 +446,12 @@ class WebsocketConnection(object):
     async def check_software_versions(self, params = None, id = None): 
         logger.info("check_software_versions")
         try: 
-            code = run_bash_script([os.path.join(self.updates_dir, "updates.sh"), "check"])
+            code = run_bash_script([os.path.join(self.system_dir, "updates.sh"), "check"])
             if code != 0: 
                 logger.warning("Failed checking software updates")
                 await self.send_error_status(-1, "Failed checking software updates", id)
+            else: 
+                logger.info("Succeffully checked softare updates")
         except Exception as e: 
             logger.warning(f"Error to check software updates: {e}") 
             await self.send_error_status(-1, "Error to check software updates", id) 
@@ -458,7 +462,7 @@ class WebsocketConnection(object):
         fallback_version = None 
 
         try: 
-            version_file = os.path.join(self.system_dir, "VERSION.txt")
+            version_file = os.path.join(self.software_dir, "VERSION.txt")
             logger.info(f"Check installed version from {version_file}")
             with open(version_file) as f: 
                 for line in f: 
@@ -472,7 +476,7 @@ class WebsocketConnection(object):
             await self.send_error_status(-1, "Error to check installed version", id)
 
         try: 
-            version_file = os.path.join(self.system_dir, "VERSION.txt")
+            version_file = os.path.join(self.updates_dir, "VERSION.txt")
             logger.info(f"Check latest and fallback version from {version_file}")
             with open(os.path.join(self.updates_dir, "VERSION.txt")) as f: 
                 for line in f: 
@@ -505,7 +509,7 @@ class WebsocketConnection(object):
         logger.warning(f"Install software version {version}")
         if version: 
             try: 
-                code = run_bash_script([os.path.join(self.updates_dir, "updates.sh"), "install", version])
+                code = run_bash_script([os.path.join(self.system_dir, "updates.sh"), "install", version])
                 message = (
                     f"Successfully installed software version {version}" if code == 0 
                     else f"Failed installing software version {version}"
@@ -643,7 +647,7 @@ class WebsocketServer(object):
 
     # handle client connection
     async def handler(self, websocket):
-        logger.info(f"Income connection from {websocket.remote_address[0]}") 
+        logger.info(f"websocket connection from {websocket.remote_address[0]}") 
         connection = WebsocketConnection(websocket)
         self._connections.add(connection)
         try:
@@ -654,12 +658,12 @@ class WebsocketServer(object):
         except Exception as e: 
             logger.warning(e)
         finally: 
-            logger.error(f"Remove connection from {websocket.remote_address[0]}")
+            logger.error(f"remove websocket connection from {websocket.remote_address[0]}")
             self._connections.remove(connection)
             
     def run_forever(self):
         async def _run(): 
-            logger.info(f"Run webocket server at port {self.port}") 
+            logger.info(f"run webocket server at port {self.port}") 
             self._loop = asyncio.get_running_loop() 
             self._stop_event = asyncio.Event() 
             self._server = await websockets.serve(self.handler, "0.0.0.0", self.port)
@@ -669,19 +673,19 @@ class WebsocketServer(object):
 
     def start(self): 
         if self._thread is None: 
-            logger.info(f"Start webocket server") 
+            logger.info(f"start webocket server") 
             self._thread = threading.Thread(target=self.run_forever)
             self._thread.start()
     
     def stop(self): 
         if self._thread is not None: 
-            logger.warning("Stop websocket server...")
+            logger.warning("stop websocket server...")
             self._loop.call_soon_threadsafe(self._stop_event.set)
             self._loop.call_soon_threadsafe(self._server.close)
             self._thread.join()
             self._thread = None 
             self._connections.clear() 
-            logger.warning("Websocket server stopped")
+            logger.warning("websocket server stopped")
 
 # start camera server(s) based on config file 
 import signal 
@@ -737,7 +741,7 @@ import argparse
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Live Camera System")
     parser.add_argument("--config_file", "-c", type=str, default="camera.json")
-    parser.add_argument("--log_level", type=str, default="INFO")
+    parser.add_argument("--log_level", type=str, default="DEBUG")
 
     # parser.print_help()
     args = parser.parse_args()

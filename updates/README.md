@@ -1,1 +1,3 @@
-# Remote/automatic software updates 
+# updates 
+
+This is the reserved location for software update. 
