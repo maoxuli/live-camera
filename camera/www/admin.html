@@ -367,7 +367,7 @@ label, input {
         I("installed_version").value = versions.installed_version; 
         I("latest_version").value = versions.latest_version; 
         I("fallback_version").value = versions.fallback_version; 
-        popup_message(status_handlers[CHECK_SOFTWARE_VERSIONS], "success", "Software versions refreshed")
+        popup_message(status_handlers.get(CHECK_SOFTWARE_VERSIONS), "success", "Software versions refreshed")
     }
 
     result_handlers.set(INSTALL_LATEST_SOFTWARE, update_software_versions)
@@ -400,7 +400,7 @@ label, input {
         I("wifi_ap_ssid").value = wifi.setup.ssid 
         I("wifi_ap_password").value = wifi.setup.password 
         I("wifi_ap_ip").value = ip  
-        popup_message(status_handlers[CHECK_WIFI_AP_STATUS], "success", "WiFi status refreshed")
+        popup_message(status_handlers.get(CHECK_WIFI_AP_STATUS), "success", "WiFi status refreshed")
     }
 
     function setup_wifi_ap() {
@@ -419,7 +419,7 @@ label, input {
         I("wifi_sta_ssid").value = wifi.setup.ssid 
         I("wifi_sta_password").value = wifi.setup.password 
         I("wifi_sta_ip").value = ip 
-        popup_message(status_handlers[CHECK_WIFI_AP_STATUS], "success", "WiFi status refreshed")
+        popup_message(status_handlers.get(CHECK_WIFI_STA_STATUS), "success", "WiFi status refreshed")
     }
 
     result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
@@ -443,7 +443,7 @@ label, input {
         console.log(settings);
         I("video_fps").value = settings.fps
         I("video_brightness").value = settings.brightness 
-        popup_message(status_handlers[CHECK_VIDEO_SETTINGS], "success", "Video settings refreshed")
+        popup_message(status_handlers.get(CHECK_VIDEO_SETTINGS), "success", "Video settings refreshed")
     }
 
     function setup_video() {
