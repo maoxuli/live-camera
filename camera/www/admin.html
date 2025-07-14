@@ -219,7 +219,7 @@ label, input {
     </div>
 </div>
 <script>
-    function I(id){return I(id);}
+    function I(id){return document.getElementById(id);}
     var hostname = window.location.hostname;
     var url = "ws://" + hostname + ":8090/camera"
     var ws = new WebSocket(url);
