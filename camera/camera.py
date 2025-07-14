@@ -354,8 +354,6 @@ class WebsocketConnection(object):
             "setup_wifi_sta": self.setup_wifi_sta, 
             "check_video_settings": self.check_video_settings, 
             "setup_video": self.setup_video, 
-            "setup_video_resolution": self.setup_video_resolution, 
-            "setup_video_fps": self.setup_video_fps, 
         } 
 
         # paths 
@@ -617,19 +615,32 @@ class WebsocketConnection(object):
 
     async def check_video_settings(self, params = None, id = None): 
         logger.info("check_video_settings") 
+        resolution = {
+            "options": [
+                "640x480 (4:3)", 
+                "800x600 (4:3)", 
+                "1280x720 (16:9)", 
+                "1920x1080 (16:9)", 
+            ], 
+            "selected": 2
+        }
+        af_mode = {
+            "options": [
+                "Manual", 
+                "Auto", 
+                "Continuous", 
+            ], 
+            "selected": 2
+        }
         result = {
-            "fps": 30, 
-            "brightness": 0.5
+            "resolution": resolution, 
+            "af_mode": af_mode, 
+            "frame_rate": { "range": [15, 30], "value": 30 }, 
+            "brightness": { "range": [0, 1.0], "value": 0.5 }, 
         }
         await self.send_result_response(result, id)
 
     async def setup_video(self, params = None, id = None): 
-        pass 
-
-    async def setup_video_resolution(self, params = None, id = None): 
-        pass 
-
-    async def setup_video_fps(self, params = None, id = None): 
         pass 
 
 

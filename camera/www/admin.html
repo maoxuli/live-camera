@@ -162,28 +162,29 @@ label, input {
         <div class="section_title">Video Settings</div>
         <div id="video_message"></div>
         <div class="section_row">
-            <label for="video_res">Resolution</label>
-            <select id="video_res">
-                <option value="640,480">640x480 (4:3)</option>
-                <option value="1280,720">1280x720 (16:9)</option>
-                <option value="1920,1080">1920x1080 (16:9)</option>
+            <label for="video_resolution">Resolution</label>
+            <select id="video_resolution">
+                <!-- <option value="0">640x480 (4:3)</option>
+                <option value="0">800x600 (4:3)</option>
+                <option value="1">1280x720 (16:9)</option>
+                <option value="2">1920x1080 (16:9)</option> -->
             </select>
         </div>
         <div class="section_row">
             <label for="video_af_mode">AF Mode</label>
             <select id="video_af_mode">
-                <option value="0">Manual</option>
+                <!-- <option value="0">Manual</option>
                 <option value="1">Auto</option>
-                <option value="2">Continuous</option>
+                <option value="2">Continuous</option> -->
             </select>
         </div>
         <div class="section_row">
-            <label for="video_fps">Frame Rate [1-60]</label>
-            <input type="text" id="video_fps" value="1">
+            <label for="video_frame_rate">Frame Rate</label>
+            <input type="text" id="video_frame_rate" value="">
         </div>
         <div class="section_row">
-            <label for="video_bright">Brightness [0-1.0]</label>
-            <input type="text" id="video_bright" value="1">
+            <label for="video_brightness">Brightness</label>
+            <input type="text" id="video_brightness" value="">
         </div>
         <div class="section_row">
             <button id="check_video_settings" onclick="check_video_settings()">Check</button>
@@ -219,7 +220,6 @@ label, input {
     </div>
 </div>
 <script>
-    function I(id){return document.getElementById(id);}
     var hostname = window.location.hostname;
     var url = "ws://" + hostname + ":8090/camera"
     var ws = new WebSocket(url);
@@ -269,8 +269,6 @@ label, input {
 
     const CHECK_VIDEO_SETTINGS = 10; 
     const SETUP_VIDEO = 11; 
-    const SETUP_VIDEO_RESOLUTION = 12; 
-    const SETUP_VIDEO_BRIGHTNESS = 13; 
 
     // there will be a "result" handler for each command 
     // which is set with the command functions 
@@ -295,8 +293,6 @@ label, input {
 
     status_handlers.set(CHECK_VIDEO_SETTINGS, "video_message")
     status_handlers.set(SETUP_VIDEO, "video_message")
-    status_handlers.set(SETUP_VIDEO_RESOLUTION, "video_message")
-    status_handlers.set(SETUP_VIDEO_BRIGHTNESS, "video_message")
 
     function handle_response(response) {
         id = "id" in response ? response.id : null;  
@@ -316,7 +312,7 @@ label, input {
     }
 
     function popup_message(element_id, type, message) {
-        const statusMessagesContainer = I(element_id);
+        const statusMessagesContainer = document.getElementById(element_id);
         
         const statusRow = document.createElement('div');
         statusRow.classList.add('status_row', type); 
@@ -364,15 +360,15 @@ label, input {
 
     function update_software_versions(versions) {
         console.log(versions)
-        I("installed_version").value = versions.installed_version; 
-        I("latest_version").value = versions.latest_version; 
-        I("fallback_version").value = versions.fallback_version; 
+        document.getElementById("installed_version").value = versions.installed_version; 
+        document.getElementById("latest_version").value = versions.latest_version; 
+        document.getElementById("fallback_version").value = versions.fallback_version; 
         popup_message(status_handlers.get(CHECK_SOFTWARE_VERSIONS), "success", "Software versions refreshed")
     }
 
     result_handlers.set(INSTALL_LATEST_SOFTWARE, update_software_versions)
     function install_latest_software() {
-        version = I("latest_version").value 
+        version = document.getElementById("latest_version").value 
         console.log("latest_version: " + version)
         params = { "version": version }
         var request = { "method": "install_software", "params": params, "id": INSTALL_LATEST_SOFTWARE };
@@ -381,7 +377,7 @@ label, input {
     
     result_handlers.set(INSTALL_FALLBACK_SOFTWARE, update_software_versions)
     function install_fallback_software() {
-        version = I("fallback_version").value 
+        version = document.getElementById("fallback_version").value 
         console.log("fallback_version: " + version)
         params = { "version": version }
         var request = { "method": "install_software", "params": params, "id": INSTALL_FALLBACK_SOFTWARE };
@@ -397,9 +393,9 @@ label, input {
     function update_wifi_ap_status(wifi) {
         console.log(wifi)
         ip = wifi.address ? wifi.address.addr : ""
-        I("wifi_ap_ssid").value = wifi.setup.ssid 
-        I("wifi_ap_password").value = wifi.setup.password 
-        I("wifi_ap_ip").value = ip  
+        document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
+        document.getElementById("wifi_ap_password").value = wifi.setup.password 
+        document.getElementById("wifi_ap_ip").value = ip  
         popup_message(status_handlers.get(CHECK_WIFI_AP_STATUS), "success", "WiFi status refreshed")
     }
 
@@ -416,16 +412,16 @@ label, input {
     function update_wifi_sta_status(wifi) {
         console.log(wifi);
         ip = wifi.address ? wifi.address.addr : ""
-        I("wifi_sta_ssid").value = wifi.setup.ssid 
-        I("wifi_sta_password").value = wifi.setup.password 
-        I("wifi_sta_ip").value = ip 
+        document.getElementById("wifi_sta_ssid").value = wifi.setup.ssid 
+        document.getElementById("wifi_sta_password").value = wifi.setup.password 
+        document.getElementById("wifi_sta_ip").value = ip 
         popup_message(status_handlers.get(CHECK_WIFI_STA_STATUS), "success", "WiFi status refreshed")
     }
 
     result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
     function setup_wifi_sta() {
-        ssid = I("wifi_sta_ssid").value 
-        password = I("wifi_sta_password").value 
+        ssid = document.getElementById("wifi_sta_ssid").value 
+        password = document.getElementById("wifi_sta_password").value 
         console.log("WiFi STA SSID: " + ssid)
         console.log("WiFi STA password: " + password)
         params = { "ssid": ssid, "password": password}
@@ -441,20 +437,40 @@ label, input {
 
     function update_video_settings(settings) {
         console.log(settings);
-        I("video_fps").value = settings.fps
-        I("video_brightness").value = settings.brightness 
+        update_video_resolution(settings.resolution);
+        update_video_af_mode(settings.af_mode); 
+        document.getElementById("video_frame_rate").value = settings.frame_rate.value;
+        document.getElementById("video_brightness").value = settings.brightness.value; 
         popup_message(status_handlers.get(CHECK_VIDEO_SETTINGS), "success", "Video settings refreshed")
     }
 
+    function fill_select(sel, options) {
+        while (sel.firstChild) {                
+            sel.removeChild(sel.firstChild);
+        } 
+        if (options) {
+            options.forEach((item, index) => {
+                var opt = document.createElement("option");
+                opt.value= index;
+                opt.innerHTML = item;
+                sel.appendChild(opt);
+            });
+        }
+    }
+
+    function update_video_resolution(resolution) {
+        sel = document.getElementById("video_resolution"); 
+        fill_select(sel, resolution.options);
+        sel.options.selectedIndex = resolution.selected;
+    }
+
+    function update_video_af_mode(af_mode) {
+        sel = document.getElementById("video_af_mode"); 
+        fill_select(sel, af_mode.options);
+        sel.options.selectedIndex = af_mode.selected;
+    }
+
     function setup_video() {
-
-    }
-
-    function setup_video_resolution() {
-
-    }
-
-    function setup_video_fps() {
 
     }
 </script>
