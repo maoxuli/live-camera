@@ -29,7 +29,7 @@ echo "BASH_DIR: ${BASH_DIR}"
 # also trying to find current SSID/password to simplify the installation/update 
 # wpa_supplicant.conf required "ssid" and "psk" in double quotes  
 FILE="/etc/wpa_supplicant/wpa_supplicant.conf"
-echo "Find current SSID/password in ${FILE}"
+echo "Find SSID/password in ${FILE}"
 SSID=$(sudo grep "^[[:space:]]*ssid[[:space:]]*=" ${FILE} | cut -d'=' -f2)
 PSK=$(sudo grep "^[[:space:]]*psk[[:space:]]*=" ${FILE} | cut -d'=' -f2) 
 echo "SSID: ${SSID}" 
@@ -39,7 +39,7 @@ if [ -z "${SSID}" ]; then
     FILE=$(find "/etc/NetworkManager/system-connections" -name "*.nmconnections")
     echo "FILE: ${FILE}" 
     if [ -n "${FILE}" ]; then 
-        echo "Find current SSID/password in ${FILE}"
+        echo "Find SSID/password in ${FILE}"
         SSID=$(sudo grep "^[[:space:]]*ssid[[:space:]]*=" ${FILE} | cut -d'=' -f2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         PSK=$(sudo grep "^[[:space:]]*psk[[:space:]]*=" ${FILE} | cut -d'=' -f2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         SSID="\"${SSID}\""

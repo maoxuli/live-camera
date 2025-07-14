@@ -186,7 +186,8 @@ label, input {
             <input type="text" id="video_bright" value="1">
         </div>
         <div class="section_row">
-            <button id="setup_camera" onclick="setup_camera()">Apply</button>
+            <button id="check_video_settings" onclick="check_video_settings()">Check</button>
+            <button id="setup_video" onclick="setup_video()">Apply</button>
         </div>
     </div>
     <div class="section">
@@ -429,12 +430,16 @@ label, input {
         send_message(request);
     }
 
+    result_handlers.set(CHECK_VIDEO_SETTINGS, update_video_settings) 
     function check_video_settings() {
-
+        var request = { "method": "check_video_settings", "id": CHECK_VIDEO_SETTINGS };
+        send_message(request);
     }
 
     function update_video_settings(settings) {
-
+        console.log(settings);
+        document.getElementById("video_fps").value = settings.fps
+        document.getElementById("video_brightness").value = settings.brightness
     }
 
     function setup_video() {

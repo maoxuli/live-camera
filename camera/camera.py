@@ -42,7 +42,7 @@ class LogoBuffer(io.BufferedIOBase):
             image = Image.new("RGB", (1280, 720), (0, 0, 0)) 
             image.save(buf, format='jpeg') 
             self._frame = buf.getvalue() 
-        logger.info(f"Logo image size: {len(self._frame)}")
+        logger.debug(f"Logo image size: {len(self._frame)}")
 
     def read(self): 
         return self._frame 
@@ -217,7 +217,7 @@ class WebServer(object):
             super().__init__(*args, **kwargs, directory="www")
     
         def do_GET(self):
-            logger.info(f"web request for {self.path}")
+            logger.info(f"HTTP request for {self.path}")
             if self.path == "/stream.mjpg":
                 self.send_response(200)
                 self.send_header("Age", 0)
@@ -230,7 +230,7 @@ class WebServer(object):
                     while True: 
                         frame = video_server.stream.read()
                         if frame is None:
-                            logger.warning("failed capture live frame")
+                            logger.warning("Failed capture live frame")
                             frame = video_server.logo.read() 
                         self.wfile.write(b"--FRAME\r\n")
                         self.send_header("Content-Type", "image/jpeg")
@@ -239,7 +239,7 @@ class WebServer(object):
                         self.wfile.write(frame)
                         self.wfile.write(b"\r\n")
                 except Exception as e:
-                    logger.warning(f"error for live video: {e}") 
+                    logger.warning(f"Error for live video: {e}") 
                     self.send_error(404)
             elif self.path == "/snapshot.jpg":
                 self.send_response(200)
@@ -254,7 +254,7 @@ class WebServer(object):
                     self.end_headers() 
                     self.wfile.write(image)
                 except Exception as e:
-                    logger.warning(f"error for snapshot: {e}")
+                    logger.warning(f"Error for snapshot: {e}")
                     self.send_error(404)
             else:
                 if self.path == "/": 
@@ -272,38 +272,43 @@ class WebServer(object):
 
     def start(self): 
         if self._thread is None: 
-            logger.info(f"start web server at port {self.port}") 
+            logger.info(f"Start web server at port {self.port}") 
             self._thread = threading.Thread(target=self._httpd.serve_forever)
             self._thread.start()
 
     def stop(self): 
         if self._thread is not None: 
-            logger.warning("stop web server...")
+            logger.warning("Stop web server...")
             self._httpd.shutdown()
             self._thread.join()
             self._thread = None 
-            logger.warning("web server stopped")
+            logger.warning("Web server stopped")
         
 # Websocket server is used for bi-directional communications between camera and web pages.  
 import websockets
 import netifaces
 
-def run_bash_script(command_args): 
+def bash_run_d(command_args): 
+    logger.info(f"{command_args=}")
+    result = subprocess.run(command_args) 
+    logger.debug(f"returncode: {result.returncode }")
+    return result.returncode 
+
+def bash_run(command_args): 
     logger.info(f"{command_args=}")
     result = subprocess.run(command_args, capture_output=True, text=True) 
     logger.debug(f"stdout---\n{result.stdout}")
     logger.debug(f"stderr--\n{result.stderr}") 
-    logger.info(f"returncode: {result.returncode }")
+    logger.debug(f"returncode: {result.returncode }")
     return result.returncode 
 
-def get_network_addr(interface): 
-    logger.info("check interface addresses")
+def check_network_addr(interface): 
+    logger.info("Check interface addresses")
     addresses = netifaces.ifaddresses(interface)
     logger.debug(f"stdout---\n{addresses}")
     if netifaces.AF_INET in addresses:
         ipv4_addresses = addresses[netifaces.AF_INET]
         if len(ipv4_addresses) > 0: 
-            logger.info(ipv4_addresses)
             return ipv4_addresses[0]
 
 def find_key_value(filename, key): 
@@ -315,22 +320,18 @@ def find_key_value(filename, key):
                 value = parts[1].strip().strip('\"') 
                 return value  
 
-def get_wifi_sta_id(): 
+def check_wifi_sta_id(): 
     wpa_conf = "/etc/wpa_supplicant/wpa_supplicant.conf"
-    logger.info(f"get wifi ssid and password from {wpa_conf}")
+    logger.info(f"Check wifi ssid and password from {wpa_conf}")
     ssid = find_key_value(wpa_conf, "ssid") 
     password = find_key_value(wpa_conf, "psk") 
-    logger.info(f"{ssid=}")
-    logger.info(f"{password=}")
     return ssid, password 
 
-def get_wifi_ap_id(): 
+def check_wifi_ap_id(): 
     apd_conf = "/etc/hostapd/hostapd.conf"
-    logger.info(f"get wifi ssid and password from {apd_conf}")
+    logger.info(f"Check wifi ssid and password from {apd_conf}")
     ssid = find_key_value(apd_conf, "ssid") 
     password = find_key_value(apd_conf, "wpa_passphrase") 
-    logger.info(f"{ssid=}")
-    logger.info(f"{password=}")
     return ssid, password 
 
 # handle requests on websocket connection 
@@ -375,9 +376,13 @@ class WebsocketConnection(object):
         message = json.dumps(response)  
         await self._websocket.send(message)
 
-    async def send_error_status(self, code = -1, message = "", id = None): 
-        logger.info(f"Send error status: {code} {message}")
+    async def send_status_response(self, code = -1, message = "", id = None): 
+        logger.info("Send status response...")
         await self.send_response({ "error": { "code": code, "message": message}, "id": id }) 
+
+    async def send_result_response(self, result = None, id = None): 
+        logger.info("Send result response...")
+        await self.send_response({ "result": result, "id": id }) 
 
     # handle requests until the connection is closed  
     async def handle_requests(self): 
@@ -408,221 +413,215 @@ class WebsocketConnection(object):
             await self._handlers[method](params=params, id=id) 
         else: 
             logger.warning(f"Method not in list: {self._handlers.keys()}") 
-            await self.send_error_status(-1, "Unsupported method", id)
+            await self.send_status_response(-1, "Unsupported method", id)
 
     async def check_system_status(self, params = None, id = None): 
         logger.info("check_system_status") 
-        await self.send_error_status(-1, "Not implemented", id) 
+        await self.send_status_response(-1, "Not implemented", id) 
 
     async def restart_system(self, params = None, id = None): 
         logger.warning("restart_system")
         try: 
-            code = run_bash_script(["sudo", "shutdown", "-r", "now"]) 
+            code = bash_run_d(["sudo", "-b", "bash", "-c", "sleep 5; reboot"]) 
             message = (
-                "Successfully restart the system" if code == 0 
+                "System restart in 5 seconds, refresh page to reconnect." if code == 0 
                 else "Failed to restart the system"
             ) 
-            await self.send_error_status(code, message, id) 
+            await self.send_status_response(code, message, id) 
         except Exception as e: 
-            logger.warning(f"Error restart system: {e}") 
-            await self.send_error_status(-1, "Error to restart system", id)
+            logger.warning(f"Error to restart the system: {e}") 
+            await self.send_status_response(-1, "Error to restart the system", id)
 
     async def shutdown_system(self, params = None, id = None): 
         logger.warning("shutdown_system")
         try: 
-            code = run_bash_script(["sudo", "shutdown", "-h", "now"])  
+            code = bash_run_d(["sudo", "-b", "bash", "-c", "sleep 5; shutdown now"])  
             message = (
-                "Successfully shutdown the system" if code == 0 
+                "System hutdown in 5 seconds" if code == 0 
                 else "Failed to shutdown the system"
             ) 
-            await self.send_error_status(code, message, id)
+            await self.send_status_response(code, message, id)
         except Exception as e: 
-            logger.warning(f"Error shutdown system: {e}") 
-            await self.send_error_status(-1, "Error to shutdown system", id)
+            logger.warning(f"Error to shutdown the system: {e}") 
+            await self.send_status_response(-1, "Error to shutdown the system", id)
    
     async def check_software_versions(self, params = None, id = None): 
         logger.info("check_software_versions")
         try: 
-            code = run_bash_script([os.path.join(self.system_dir, "updates.sh"), "check"])
+            code = bash_run([os.path.join(self.system_dir, "updates.sh"), "check"])
             if code != 0: 
                 logger.warning("Failed checking software updates")
-                await self.send_error_status(-1, "Failed checking software updates", id)
+                await self.send_status_response(-1, "Failed checking software updates", id)
             else: 
                 logger.info("Succeffully checked softare updates")
         except Exception as e: 
             logger.warning(f"Error to check software updates: {e}") 
-            await self.send_error_status(-1, "Error to check software updates", id) 
+            await self.send_status_response(-1, "Error to check software updates", id) 
 
         # get current versions 
         installed_version = None 
-        latest_version = None 
-        fallback_version = None 
-
         try: 
             version_file = os.path.join(self.software_dir, "VERSION.txt")
             logger.info(f"Check installed version from {version_file}")
             with open(version_file) as f: 
                 for line in f: 
-                    logger.info(f"{line=}")
+                    logger.debug(f"{line=}")
                     key, value = line.split("=") 
                     if key == "CURRENT_VERSION": 
-                        installed_version = value 
+                        installed_version = value.strip()
                         break 
         except Exception as e: 
             logger.warning(f"Error check installed version: {e}")
-            await self.send_error_status(-1, "Error to check installed version", id)
+            await self.send_status_response(-1, "Error to check installed version", id)
+        logger.info(f"{installed_version=}")
 
+        latest_version = None 
+        fallback_version = None 
         try: 
             version_file = os.path.join(self.updates_dir, "VERSION.txt")
             logger.info(f"Check latest and fallback version from {version_file}")
             with open(version_file) as f: 
                 for line in f: 
-                    logger.info(f"{line=}")
+                    logger.debug(f"{line=}")
                     key, value = line.split("=") 
                     if key == "CURRENT_VERSION": 
-                        latest_version = value 
+                        latest_version = value.strip() 
                     elif key == "FALLBACK_VERSION": 
-                        fallback_version = value 
+                        fallback_version = value.strip() 
         except Exception as e: 
             logger.warning(f"Error check updated versions: {e}")
-            await self.send_error_status(-1, "Error to check updated versions", id)    
-
-        logger.info(f"{installed_version=}")
+            await self.send_status_response(-1, "Error to check updated versions", id)    
         logger.info(f"{latest_version=}")
         logger.info(f"{fallback_version=}")
 
-        response =  {
-            "result": {
-                "installed_version": installed_version, 
-                "latest_version": latest_version, 
-                "fallback_version": fallback_version,
-            },
-            "id": id,
-        } 
-        await self.send_response(response) 
+        result = {
+            "installed_version": installed_version, 
+            "latest_version": latest_version, 
+            "fallback_version": fallback_version,
+        }
+        await self.send_result_response(result, id) 
     
     async def install_software(self, params = None, id = None): 
         logger.info("install_software")
         version = params["version"] if "version" in params else None 
         logger.info(f"{version=}")
         if not version:
-            await self.send_error_status(-1, "Software version is not set", id)
+            await self.send_status_response(-1, "Software version is not set", id)
             return 
+
         try: 
             logger.info(f"install software: verion={version}")
-            code = run_bash_script([os.path.join(self.system_dir, "updates.sh"), "install", version])
-            message = (
-                f"Successfully installed software: version={version}" if code == 0 
-                else f"Failed to install software: version={version}"
-            ) 
-            await self.send_error_status(code, message, id) 
+            code = bash_run([os.path.join(self.system_dir, "updates.sh"), "install", version]) 
+            if code == 0: 
+                await self.send_status_response(code, f"Successfully installed software: version={version}", id) 
+                await self.restart_system(id = id)
+            else: 
+                await self.send_status_response(code, f"Failed to install software: version={version}", id) 
         except Exception as e: 
             logger.warning(f"Error to install software: {e}") 
-            await self.send_error_status(-1, f"Error to install software: version={version}", id)            
+            await self.send_status_response(-1, f"Error to install software: version={version}", id)            
 
     async def check_wifi_ap_status(self, params = None, id = None): 
         try: 
             logger.info("check_wifi_ap_status")
-            ssid, password = get_wifi_ap_id() 
+            ssid, password = check_wifi_ap_id() 
             logger.info(f"{ssid=}") 
             logger.info(f"{password=}")
             if ssid is None: 
-                await self.send_error_status(0, "WiFi AP is not setup", id) 
+                await self.send_status_response(0, "WiFi AP is not setup", id) 
         except Exception as e: 
             logger.warning(f"Error checking wifi ap: {e}")
-            await self.send_error_status(-1, "Error to check WiFi AP", id)  
+            await self.send_status_response(-1, "Error to check WiFi AP", id)  
             
         try: 
-            address = get_network_addr("uap0")
+            address = check_network_addr("uap0")
+            logger.info(f"uap0: {address}")
             if address is None: 
-                await self.send_error_status(-1, "Failed checking WiFi IP. WiFi is not connected." , id) 
+                await self.send_status_response(-1, "Failed to check WiFi IP. WiFi is not connected." , id) 
         except Exception as e: 
-            logger.waning(f"Error checking wifi ip: {e}") 
-            await self.send_error_status(-1, "Error to check WiFi IP", id)
+            logger.waning(f"Error to check wifi ip: {e}") 
+            await self.send_status_response(-1, "Error to check WiFi IP", id)
             
-        response = {
-            "result": {
-                "setup": { "ssid": ssid, "password": password }, 
-                "address": address
-            }, 
-            "id": id,
+        result = {
+            "setup": { "ssid": ssid, "password": password }, 
+            "address": address
         }
-        await self.send_response(response)
+        await self.send_result_response(result, id)
 
     async def setup_wifi_ap(self, params = None, id = None): 
         logger.info(f"setup_wifi_ap: {params}") 
-        await self.send_error_status(-1, "Not implemented", id)
+        await self.send_status_response(-1, "Not implemented", id)
 
     async def check_wifi_sta_status(self, params = None, id = None): 
         try: 
             logger.info("check_wifi_sta_status")
-            ssid, password = get_wifi_sta_id() 
+            ssid, password = check_wifi_sta_id() 
+            logger.info(f"{ssid=}")
+            logger.info(f"{password=}")
             if ssid is None: 
-                await self.send_error_status(0, "WiFi STA is not setup", id) 
+                await self.send_status_response(0, "WiFi STA is not setup", id) 
         except Exception as e: 
-            logger.warning(f"Error checking wifi sta: {e}")
-            await self.send_error_status(-1, "Error to check WiFi STA", id)  
+            logger.warning(f"Error to check wifi sta: {e}")
+            await self.send_status_response(-1, "Error to check WiFi STA", id)  
         
         try: 
-            address = get_network_addr("wlan0")
+            address = check_network_addr("wlan0")
+            logger.info(f"wlan0: {address}")
             if address is None: 
-                await self.send_error_status(-1, "Failed checking WiFi IP. WiFi is not connected." , id)
+                await self.send_status_response(-1, "Failed to check WiFi IP. WiFi is not connected." , id)
         except Exception as e: 
-            logger.waning(f"Error checking wifi ip: {e}") 
-            await self.send_error_status(-1, "Error to check WiFi IP", id)
+            logger.waning(f"Error to check wifi ip: {e}") 
+            await self.send_status_response(-1, "Error to check WiFi IP", id)
             
-        response = {
-            "result": {
-                "setup": { "ssid": ssid, "password": password }, 
-                "address": address
-            }, 
-            "id": id,
+        result = {
+            "setup": { "ssid": ssid, "password": password }, 
+            "address": address
         }
-        await self.send_response(response)
+        await self.send_result_response(result, id)
 
     async def setup_wifi_sta(self, params = None, id = None): 
         logger.info(f"setup_wifi_sta: {params}") 
         if "ssid" not in params: 
-            await self.send_error_status(-1, "SSID is not set for WiFi STA", id) 
+            await self.send_status_response(-1, "WiFi SSID is not set", id) 
         else:  
             ssid = params["ssid"] 
             password = params["password"] if "password" in params else None 
             try: 
                 logger.info("check current SSID and password")
-                current_ssid, current_password = get_wifi_sta_id() 
+                current_ssid, current_password = check_wifi_sta_id() 
+                logger.info(f"{current_ssid=}") 
+                logger.info(f"{current_password=}")
                 if ssid == current_ssid and password == current_password: 
-                    await self.send_error_status(-1, "SSID or password for WiFi STA is not changed", id)
+                    await self.send_status_response(-1, "Neither SSID nor password is changed", id)
                     return 
             except Exception as e: 
                 logger.waning(f"Error to check wifi sta: {e}")
 
             try: 
-                logger.info(f"Setup WiFi STA: {ssid} {password}") 
-                code = run_bash_script([os.path.join(self.network_dir, "setup-wifi-sta.sh"), ssid, password])
-                message = (
-                    "Succeffully set SSID and password for WiFi STA" if code == 0 
-                    else "Failed setting SSID and password for WiFi STA"
-                )
-                await self.send_error_status(code, message, id) 
+                code = bash_run([os.path.join(self.network_dir, "setup-wifi-sta.sh"), ssid, password])
+                if code == 0: 
+                    await self.send_status_response(code, "Succeffully set WiFi SSID and password", id) 
+                    logger.info("restart network") 
+                    await self.send_status_response(-1, "Network restart, refresh page to reconnect.", id)
+                    time.sleep(3) 
+                    try: 
+                        # connection will be closed after this command 
+                        code = bash_run([os.path.join(self.network_dir, "restart-wifi.sh")])
+                    except Exception as e: 
+                        await self.send_status_response(-1, "Error to restart WiFi network", id)
+                else: 
+                    await self.send_status_response(code, "Failed to set WiFi SSID and password", id) 
             except Exception as e: 
                 logger.warning(f"Error to set wifi sta: {e}") 
-                await self.send_error_status(-1, "Error to set WiFi STA", id) 
-
-            if code == 0: 
-                logger.info("restart network") 
-                await self.send_error_status(0, "Network restart, please wait for a while.", id) 
-                try: 
-                    code = run_bash_script([os.path.join(self.network_dir, "restart-wifi.sh")])
-                    message = (
-                        "Succeffully restart WiFi network" if code == 0 
-                        else "Failed to restart WiFi network"
-                    )
-                    await self.send_error_status(code, message, id) 
-                except Exception as e: 
-                    await self.send_error_status(-1, "Error to restart WiFi network", id)
+                await self.send_status_response(-1, "Error to set WiFi STA", id) 
 
     async def check_video_settings(self, params = None, id = None): 
-        pass 
+        logger.info("check_video_settings") 
+        result = {
+            "fps": 30, 
+            "brightness": 0.5
+        }
+        await self.send_result_response(result, id)
 
     async def setup_video(self, params = None, id = None): 
         pass 
@@ -646,7 +645,7 @@ class WebsocketServer(object):
 
     # handle client connection
     async def handler(self, websocket):
-        logger.info(f"websocket connection from {websocket.remote_address[0]}") 
+        logger.info(f"Websocket connection from {websocket.remote_address[0]}") 
         connection = WebsocketConnection(websocket)
         self._connections.add(connection)
         try:
@@ -657,12 +656,12 @@ class WebsocketServer(object):
         except Exception as e: 
             logger.warning(e)
         finally: 
-            logger.error(f"remove websocket connection from {websocket.remote_address[0]}")
+            logger.error(f"Remove websocket connection from {websocket.remote_address[0]}")
             self._connections.remove(connection)
             
     def run_forever(self):
         async def _run(): 
-            logger.info(f"run webocket server at port {self.port}") 
+            logger.info(f"Run webocket server at port {self.port}") 
             self._loop = asyncio.get_running_loop() 
             self._stop_event = asyncio.Event() 
             self._server = await websockets.serve(self.handler, "0.0.0.0", self.port)
@@ -672,19 +671,19 @@ class WebsocketServer(object):
 
     def start(self): 
         if self._thread is None: 
-            logger.info(f"start webocket server") 
+            logger.info(f"Start webocket server") 
             self._thread = threading.Thread(target=self.run_forever)
             self._thread.start()
     
     def stop(self): 
         if self._thread is not None: 
-            logger.warning("stop websocket server...")
+            logger.warning("Stop websocket server...")
             self._loop.call_soon_threadsafe(self._stop_event.set)
             self._loop.call_soon_threadsafe(self._server.close)
             self._thread.join()
             self._thread = None 
             self._connections.clear() 
-            logger.warning("websocket server stopped")
+            logger.warning("Websocket server stopped")
 
 # start camera server(s) based on config file 
 import signal 
