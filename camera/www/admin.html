@@ -219,6 +219,7 @@ label, input {
     </div>
 </div>
 <script>
+    function I(id){return I(id);}
     var hostname = window.location.hostname;
     var url = "ws://" + hostname + ":8090/camera"
     var ws = new WebSocket(url);
@@ -277,41 +278,45 @@ label, input {
 
     // error status will display in the section 
     // corresponding to the command function 
-    const error_handlers = new Map(); 
+    const status_handlers = new Map(); 
 
-    error_handlers.set(RESTART_SYSTEM, "system_message")
-    error_handlers.set(SHUTDOWN_SYSTEM, "system_message")
+    status_handlers.set(RESTART_SYSTEM, "system_message")
+    status_handlers.set(SHUTDOWN_SYSTEM, "system_message")
 
-    error_handlers.set(CHECK_SOFTWARE_VERSIONS, "software_message")
-    error_handlers.set(INSTALL_LATEST_SOFTWARE, "software_message")
-    error_handlers.set(INSTALL_FALLBACK_SOFTWARE, "software_message")
+    status_handlers.set(CHECK_SOFTWARE_VERSIONS, "software_message")
+    status_handlers.set(INSTALL_LATEST_SOFTWARE, "software_message")
+    status_handlers.set(INSTALL_FALLBACK_SOFTWARE, "software_message")
 
-    error_handlers.set(CHECK_WIFI_AP_STATUS, "wifi_ap_message")
-    error_handlers.set(SETUP_WIFI_AP, "wifi_ap_message")
+    status_handlers.set(CHECK_WIFI_AP_STATUS, "wifi_ap_message")
+    status_handlers.set(SETUP_WIFI_AP, "wifi_ap_message")
 
-    error_handlers.set(CHECK_WIFI_STA_STATUS, "wifi_sta_message")
-    error_handlers.set(SETUP_WIFI_STA, "wifi_sta_message")
+    status_handlers.set(CHECK_WIFI_STA_STATUS, "wifi_sta_message")
+    status_handlers.set(SETUP_WIFI_STA, "wifi_sta_message")
 
-    error_handlers.set(CHECK_VIDEO_SETTINGS, "video_message")
-    error_handlers.set(SETUP_VIDEO, "video_message")
-    error_handlers.set(SETUP_VIDEO_RESOLUTION, "video_message")
-    error_handlers.set(SETUP_VIDEO_BRIGHTNESS, "video_message")
+    status_handlers.set(CHECK_VIDEO_SETTINGS, "video_message")
+    status_handlers.set(SETUP_VIDEO, "video_message")
+    status_handlers.set(SETUP_VIDEO_RESOLUTION, "video_message")
+    status_handlers.set(SETUP_VIDEO_BRIGHTNESS, "video_message")
 
     function handle_response(response) {
         id = "id" in response ? response.id : null;  
         if ("result" in response && result_handlers.has(id)) {
             result_handlers.get(id)(response.result)
         }
-        if ("error" in response && error_handlers.has(id)) {
-            self.popup_message(error_handlers.get(id), response.error) 
+        if ("error" in response && status_handlers.has(id)) {
+            self.handle_status(status_handlers.get(id), response.error) 
         }
     }
 
-    function popup_message(element_id, error) {
-        const statusMessagesContainer = document.getElementById(element_id);
+    function handle_status(element_id, error) {
         message = error.message;  
         code = error.code; 
-        type = code == 0 ? "success" : "error";
+        type = code == 0 ? "success" : "error"; 
+        popup_message(element_id, type, message)
+    }
+
+    function popup_message(element_id, type, message) {
+        const statusMessagesContainer = I(element_id);
         
         const statusRow = document.createElement('div');
         statusRow.classList.add('status_row', type); 
@@ -332,7 +337,6 @@ label, input {
         statusRow.appendChild(closeButton);
         statusMessagesContainer.appendChild(statusRow);
     }
-
 
     function check_system_status() {
 
@@ -360,14 +364,15 @@ label, input {
 
     function update_software_versions(versions) {
         console.log(versions)
-        document.getElementById("installed_version").value = versions.installed_version; 
-        document.getElementById("latest_version").value = versions.latest_version; 
-        document.getElementById("fallback_version").value = versions.fallback_version; 
+        I("installed_version").value = versions.installed_version; 
+        I("latest_version").value = versions.latest_version; 
+        I("fallback_version").value = versions.fallback_version; 
+        popup_message(status_handlers[CHECK_SOFTWARE_VERSIONS], "success", "Software versions refreshed")
     }
 
     result_handlers.set(INSTALL_LATEST_SOFTWARE, update_software_versions)
     function install_latest_software() {
-        version = document.getElementById("latest_version").value 
+        version = I("latest_version").value 
         console.log("latest_version: " + version)
         params = { "version": version }
         var request = { "method": "install_software", "params": params, "id": INSTALL_LATEST_SOFTWARE };
@@ -376,7 +381,7 @@ label, input {
     
     result_handlers.set(INSTALL_FALLBACK_SOFTWARE, update_software_versions)
     function install_fallback_software() {
-        version = document.getElementById("fallback_version").value 
+        version = I("fallback_version").value 
         console.log("fallback_version: " + version)
         params = { "version": version }
         var request = { "method": "install_software", "params": params, "id": INSTALL_FALLBACK_SOFTWARE };
@@ -392,9 +397,10 @@ label, input {
     function update_wifi_ap_status(wifi) {
         console.log(wifi)
         ip = wifi.address ? wifi.address.addr : ""
-        document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
-        document.getElementById("wifi_ap_password").value = wifi.setup.password 
-        document.getElementById("wifi_ap_ip").value = ip  
+        I("wifi_ap_ssid").value = wifi.setup.ssid 
+        I("wifi_ap_password").value = wifi.setup.password 
+        I("wifi_ap_ip").value = ip  
+        popup_message(status_handlers[CHECK_WIFI_AP_STATUS], "success", "WiFi status refreshed")
     }
 
     function setup_wifi_ap() {
@@ -410,19 +416,16 @@ label, input {
     function update_wifi_sta_status(wifi) {
         console.log(wifi);
         ip = wifi.address ? wifi.address.addr : ""
-        document.getElementById("wifi_sta_ssid").value = wifi.setup.ssid 
-        document.getElementById("wifi_sta_password").value = wifi.setup.password 
-        document.getElementById("wifi_sta_ip").value = ip
+        I("wifi_sta_ssid").value = wifi.setup.ssid 
+        I("wifi_sta_password").value = wifi.setup.password 
+        I("wifi_sta_ip").value = ip 
+        popup_message(status_handlers[CHECK_WIFI_AP_STATUS], "success", "WiFi status refreshed")
     }
 
     result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
     function setup_wifi_sta() {
-        ssid = document.getElementById("wifi_sta_ssid").value 
-        if (!ssid) {
-            popup_message("wifi_sta_message", {"code": -1, "message": "SSID is not set"})
-            return 
-        }
-        password = document.getElementById("wifi_sta_password").value 
+        ssid = I("wifi_sta_ssid").value 
+        password = I("wifi_sta_password").value 
         console.log("WiFi STA SSID: " + ssid)
         console.log("WiFi STA password: " + password)
         params = { "ssid": ssid, "password": password}
@@ -438,8 +441,9 @@ label, input {
 
     function update_video_settings(settings) {
         console.log(settings);
-        document.getElementById("video_fps").value = settings.fps
-        document.getElementById("video_brightness").value = settings.brightness
+        I("video_fps").value = settings.fps
+        I("video_brightness").value = settings.brightness 
+        popup_message(status_handlers[CHECK_VIDEO_SETTINGS], "success", "Video settings refreshed")
     }
 
     function setup_video() {
