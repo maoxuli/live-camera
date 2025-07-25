@@ -69,6 +69,15 @@ button {
     font-size: 1rem; 
     font-weight: normal;
 }
+#video_brightness {
+    flex-grow: 0;
+    flex-shrink: 0;
+    min-width: 2.5rem;
+    width:2.5rem; 
+    height:2rem;
+    font-size: 1rem; 
+    font-weight: normal;
+}
 .big_button {
     width: 7rem;
 }
@@ -78,7 +87,33 @@ label, input {
 .center {
     justify-content: center;
 }
-
+/* .slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 25px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+.slider:hover {
+  opacity: 1;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 25px;
+  height: 25px;
+  background: #04AA6D;
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 25px;
+  height: 25px;
+  background: #04AA6D;
+  cursor: pointer;
+} */
 .status_row {
     display: flex; 
     align-items: center;
@@ -162,12 +197,31 @@ label, input {
         <div class="section_title">Video Settings</div>
         <div id="video_message"></div>
         <div class="section_row">
+            <label for="video_transform">Transform</label>
+            <select id="video_transform">
+                <!-- <option value="0">Identity</option>
+                <option value="2">Horizontal Flip</option>
+                <option value="1">Vertical Flip</option>
+                <option value="3">180&#176 Rotation</option> -->
+            </select>
+        </div>
+        <div class="section_row">
+            <label for="video_frame_rate">Frame Rate</label>
+            <select id="video_frame_rate">
+                <!-- <option value="0">10 fps</option>
+                <option value="1">15 fps(4:3)</option>
+                <option value="2">20 fps</option>
+                <option value="3">25 fps</option>
+                <option value="4">30 fps</option> -->
+            </select>
+        </div>
+        <div class="section_row">
             <label for="video_resolution">Resolution</label>
             <select id="video_resolution">
                 <!-- <option value="0">640x480 (4:3)</option>
-                <option value="0">800x600 (4:3)</option>
-                <option value="1">1280x720 (16:9)</option>
-                <option value="2">1920x1080 (16:9)</option> -->
+                <option value="1">800x600 (4:3)</option>
+                <option value="2">1280x720 (16:9)</option>
+                <option value="3">1920x1080 (16:9)</option> -->
             </select>
         </div>
         <div class="section_row">
@@ -179,12 +233,21 @@ label, input {
             </select>
         </div>
         <div class="section_row">
-            <label for="video_frame_rate">Frame Rate</label>
-            <input type="text" id="video_frame_rate" value="">
+            <label for="video_awb_mode">AWB Mode</label>
+            <select id="video_awb_mode">
+                <!-- <option value="0">Off</option>
+                <option value="1">Auto</option>
+                <option value="2">Tungsten</option>
+                <option value="3">Fluorescent</option>
+                <option value="4">Indoor</option>
+                <option value="5">Daylight</option>
+                <option value="6">Cloudy</option> -->
+            </select>
         </div>
         <div class="section_row">
-            <label for="video_brightness">Brightness</label>
-            <input type="text" id="video_brightness" value="">
+            <label for="video_brightness_slider">Brightness</label>
+            <input type="range" min="-10" max="10" value="0" class="slider" id="video_brightness_slider">
+            <input type="text" id="video_brightness" value="0.0" readonly>
         </div>
         <div class="section_row">
             <button id="check_video_settings" onclick="check_video_settings()">Check</button>
@@ -221,6 +284,7 @@ label, input {
 </div>
 <script>
     var hostname = window.location.hostname;
+    if (!hostname) hostname = "127.0.0.1";  
     var url = "ws://" + hostname + ":8090/camera"
     var ws = new WebSocket(url);
     ws.onopen = (event) => {
@@ -437,10 +501,13 @@ label, input {
 
     function update_video_settings(settings) {
         console.log(settings);
-        update_video_resolution(settings.resolution);
-        update_video_af_mode(settings.af_mode); 
-        document.getElementById("video_frame_rate").value = settings.frame_rate.value;
-        document.getElementById("video_brightness").value = settings.brightness.value; 
+        update_select(settings.transform, "video_transform");
+        update_select(settings.frame_rate, "video_frame_rate");
+        update_select(settings.resolution, "video_resolution");
+        update_select(settings.af_mode, "video_af_mode"); 
+        update_select(settings.awb_mode, "video_awb_mode"); 
+        document.getElementById("video_brightness_slider").value = settings.brightness; 
+        document.getElementById("video_brightness").value = settings.brightness;
         popup_message(status_handlers.get(CHECK_VIDEO_SETTINGS), "success", "Video settings refreshed")
     }
 
@@ -458,21 +525,32 @@ label, input {
         }
     }
 
-    function update_video_resolution(resolution) {
-        sel = document.getElementById("video_resolution"); 
-        fill_select(sel, resolution.options);
-        sel.options.selectedIndex = resolution.selected;
+    function update_select(settings, element_id) {
+        sel = document.getElementById(element_id); 
+        fill_select(sel, settings.options);
+        sel.options.selectedIndex = settings.selected;
     }
 
-    function update_video_af_mode(af_mode) {
-        sel = document.getElementById("video_af_mode"); 
-        fill_select(sel, af_mode.options);
-        sel.options.selectedIndex = af_mode.selected;
-    }
-
+    result_handlers.set(SETUP_VIDEO, update_video_settings) 
     function setup_video() {
-
+        params = {
+            "transform": document.getElementById("video_transform").options.selectedIndex, 
+            "frame_rate": document.getElementById("video_frame_rate").options.selectedIndex, 
+            "resolution": document.getElementById("video_resolution").options.selectedIndex, 
+            "af_mode": document.getElementById("video_af_mode").options.selectedIndex, 
+            "awb_mode": document.getElementById("video_awb_mode").options.selectedIndex, 
+            "brightness": document.getElementById("video_brightness").value 
+        }
+        var request = { "method": "setup_video", "params": params, "id": SETUP_VIDEO };
+        send_message(request);
     }
+
+    var video_brightness_slider = document.getElementById("video_brightness_slider");
+    var video_brightness = document.getElementById("video_brightness");
+    video_brightness.value = (video_brightness_slider.value / 10).toFixed(1);
+    video_brightness_slider.addEventListener("input", function() {
+        video_brightness.value = (this.value / 10).toFixed(1);
+    });
 </script>
 </body>
 </html>
