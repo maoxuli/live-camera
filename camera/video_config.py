@@ -45,7 +45,7 @@ DEFAULT_SETTINGS = {
             {"name": "25 fps", "value": 25.0}, 
             {"name": "30 fps", "value": 30.0}
         ], 
-        "selected": 3
+        "selected": 4
     }, 
     "resolution": {
         "options": [
@@ -62,7 +62,7 @@ DEFAULT_SETTINGS = {
             {"name": "1920x1080 (16:9)", "value": [1920, 1080]}, 
             {"name": "3840x2160 (16:9)", "value": [3840, 2160]}
         ], 
-        "selected": 2
+        "selected": 1
     }, 
     "af_mode": {
         "options": [
@@ -82,11 +82,11 @@ DEFAULT_SETTINGS = {
             {"name": "Daylight", "value": 2}, 
             {"name": "Cloudy", "value": 2}
         ], 
-        "selected": 1
+        "selected": 0
     }, 
     "brightness": {
-        "range": [-1, 1], 
-        "value": 0
+        "range": [-1.0, 1.0], 
+        "value": 0.0
     }    
 }
 
@@ -107,9 +107,14 @@ class VideoConfig(object):
         logger.debug(self._settings) 
 
     def save(self): 
-        logger.info(f"Save settings to {self._config_file}")
-        with open(self._config_file, "w") as f: 
-            json.dump(self._settings, f) 
+        logger.info(f"Save settings to {self._config_file}") 
+        try: 
+            with open(self._config_file, "w") as f: 
+                json.dump(self._settings, f) 
+                return True 
+        except Exception as e: 
+            logger.warning(f"Error to save config: {e}") 
+            return False 
 
     def settings(self, full = False): 
         if full: 
@@ -143,7 +148,7 @@ class VideoConfig(object):
                 options = self._settings[name]["options"] 
                 if selected < len(options): 
                     settings["selected"] = selected 
-                    return options[selected]
+                    return options[selected]["value"]
                 else: 
                     raise Exception(f"Option index is out of range: {selected}") 
         else: 
@@ -176,41 +181,41 @@ class VideoConfig(object):
         return self._option_value("transform", full) 
     
     def update_transform(self, selected): 
-        return self._update_option_value("transfrom", selected) 
+        return self._update_option_value("transform", selected) 
     
     def frame_rate(self, full = False): 
         return self._option_value("frame_rate", full) 
     
-    def set_frame_rate(self, selected): 
+    def update_frame_rate(self, selected): 
         return self._update_option_value("frame_rate", selected) 
         
     def resolution(self, full = False): 
         return self._option_value("resolution", full) 
     
-    def set_resolution(self, selected): 
+    def update_resolution(self, selected): 
         return self._update_option_value("resolution", selected) 
     
     def snapshot_resolution(self, full = False): 
         return self._option_value("snapshot_resolution", full) 
     
-    def set_snapshot_resolution(self, selected): 
+    def update_snapshot_resolution(self, selected): 
         return self._update_option_value("snapshot_resolution", selected) 
     
     def af_mode(self, full = False): 
         return self._option_value("af_mode", full) 
     
-    def set_af_mode(self, selected): 
+    def update_af_mode(self, selected): 
         return self._update_option_value("af_mode", selected) 
     
     def awb_mode(self, full = False): 
         return self._option_value("awb_mode", full) 
     
-    def set_awb_mode(self, selected): 
+    def update_awb_mode(self, selected): 
         return self._update_option_value("awb_mode", selected) 
     
     def brightness(self, full = False): 
         return self._range_value("brightness", full) 
     
-    def set_brightness(self, value): 
+    def update_brightness(self, value): 
         return self._update_range_value("brightness", value) 
     

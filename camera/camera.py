@@ -68,7 +68,7 @@ class StreamBuffer(io.BufferedIOBase):
 
     def write(self, buf):
         with self._condition:
-            if time.time() - self._last_write_t > 0.05: # lower than 20 fps 
+            if time.time() - self._last_write_t > 0.2: # lower than 5 fps 
                 logger.warning(f"write after: {time.time() - self._last_write_t}")
             self._last_write_t = time.time()
             self._frame = buf
@@ -76,7 +76,7 @@ class StreamBuffer(io.BufferedIOBase):
 
     def read(self): 
         with self._condition:
-            if time.time() - self._last_read_t > 0.1: # lower than 10 fps 
+            if time.time() - self._last_read_t > 0.2: # lower than 5 fps 
                 logger.warning(f"read after: {time.time() - self._last_read_t}")
             self._last_read_t = time.time()
             return self._frame if self._condition.wait(1) else None 
@@ -87,7 +87,7 @@ class StreamBuffer(io.BufferedIOBase):
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
-import libcamera.controls import AfModeEnum, AwbModeEnum
+from libcamera import Transform, controls
 
 from video_config import VideoConfig 
 
@@ -105,10 +105,10 @@ class VideoServer(object):
         # stream and snapshot 
         self._stream_buffer = StreamBuffer()
         self._snapshot_buffer = FrameBuffer() 
-        self.picam2 = Picamera2() 
+        self.picam2 = None 
 
-    def setup_camera(self): 
-        logger.info("Configure camera")
+    def open_camera(self): 
+        logger.info("Open camera with initial setup") 
         transform = self._config.transform() 
         logger.info(f"{transform=}")
         frame_rate = self._config.frame_rate() 
@@ -118,33 +118,34 @@ class VideoServer(object):
         snapshot_resolution = self._config.snapshot_resolution() 
         logger.info(f"{snapshot_resolution=}")
 
-        buffer_count = 6 
-        queue = True 
-        logger.info(f"{buffer_count=}")
-        logger.info(f"{queue=}")
-        
-        config = self.picam2.create_video_configuration(
-            main = {"size": snapshot_resolution}, 
+        self.picam2 = Picamera2() 
+        video_config = self.picam2.create_video_configuration(
+            main = {"size": snapshot_resolution, "format": "RGB888"},
             lores = {"size": resolution},  
-            encode="lores",
-            transform = libcamera.Transform(hflip=transform["hflip"], vflip=transform["vflip"]), 
-            buffer_count = buffer_count, 
-            queue = queue, 
+            encode = "lores",
+            buffer_count = 2, 
+            display = None, 
+            transform = Transform(hflip=transform["hflip"], vflip=transform["vflip"]), 
             controls = {"FrameRate": frame_rate}
         )
-        logger.info(f"{config=}")
-        self.picam2.configure(config)
+        logger.info(f"{video_config=}")
+        self.picam2.configure(video_config)
 
         # apply controls 
         logger.info("Apply camera controls")
-        self.apply_controls("AfMode", AfModeEnum(self._config.af_mode())) 
-        self.apply_controls("AwbMode", AwbModeEnum(self._config.awb_mode()))
+        self.apply_controls("AfMode", self._config.af_mode()) 
+        self.apply_controls("AwbMode", self._config.awb_mode())
         self.apply_controls("Brightness", self._config.brightness())
         logger.info(f"{self.picam2.camera_controls=}")
 
     def apply_controls(self, name, value): 
+        logger.info(f"apply_controls {name}: {value}")
         try: 
-            self.picam2.set_controls({name: value})
+            if self.picam2 is not None: 
+                self.picam2.set_controls({name: value})
+                logger.info(f"{self.picam2.controls=}")
+            else: 
+                logger.warning("Camera is not opened yet") 
             return True 
         except Exception as e: 
             logger.warning(f"Error to apply controls: {e}")
@@ -154,7 +155,7 @@ class VideoServer(object):
     def update_transform(self, selected): 
         try: 
             transform = self._config.update_transform(selected) 
-            return self._config_save() if transform is not None else False 
+            return self._config.save() if transform is not None else False 
         except Exception as e: 
             raise Exception(f"Error to update transform: {e}")
 
@@ -162,7 +163,7 @@ class VideoServer(object):
     def update_frame_rate(self, selected): 
         try: 
             frame_rate = self._config.update_frame_rate(selected) 
-            return self._config_save() if frame_rate is not None else False 
+            return self._config.save() if frame_rate is not None else False 
         except Exception as e: 
             raise Exception(f"Error to update frame rate: {e}")
 
@@ -170,7 +171,7 @@ class VideoServer(object):
     def update_resolution(self, selected): 
         try: 
             resolution = self._config.update_resolution(selected) 
-            return self._config_save() if resolution is not None else False 
+            return self._config.save() if resolution is not None else False 
         except Exception as e: 
             raise Exception(f"Error to update resolution: {e}")
 
@@ -178,7 +179,7 @@ class VideoServer(object):
     def apply_af_mode(self, selected): 
         try: 
             af_mode = self._config.update_af_mode(selected) 
-            return self.apply_controls("af_mode", AfModeEnum(af_mode)) if af_mode is not None else False  
+            return self.apply_controls("AfMode", af_mode) if af_mode is not None else False  
         except Exception as e: 
             raise Exception(f"Error to apply AF mode: {e}")
 
@@ -186,7 +187,7 @@ class VideoServer(object):
     def apply_awb_mode(self, selected): 
         try: 
             awb_mode = self._config.update_awb_mode(selected) 
-            return self.apply_controls("awb_mode", AwbModeEnum(awb_mode)) if awb_mode is not None else False  
+            return self.apply_controls("AwbMode", awb_mode) if awb_mode is not None else False  
         except Exception as e: 
             raise Exception(f"Error to apply AWB mode: {e}")
 
@@ -194,7 +195,7 @@ class VideoServer(object):
     def apply_brightness(self, value): 
         try: 
             brightness = self._config.update_brightness(value) 
-            return self.apply_controls("brightness", brightness) if brightness is not None else False  
+            return self.apply_controls("Brightness", brightness) if brightness is not None else False  
         except Exception as e: 
             raise Exception(f"Error to apply brightness: {e}")
 
@@ -215,8 +216,8 @@ class VideoServer(object):
         logger.info("snapshot") 
         try: 
             _data = io.BytesIO() 
-            self.picam2.capture_file(_data, format="jpeg")
-            logger.info(f"Image size: {len(_data.getvalue())}")
+            self.picam2.capture_file(_data, "main", format="png")
+            logger.info(f"Image data size: {len(_data.getvalue())}")
             self._snapshot_buffer.write(_data.getvalue()) 
         except Exception as e: 
             logger.warning(f"Failed capture image: {e}")
@@ -228,20 +229,27 @@ class VideoServer(object):
         self.start() 
 
     def start(self): 
-        logger.info("Start video streaming")
+        logger.info("Start video streaming") 
         try: 
-            self.setup_camera()
-            self.picam2.start_recording(JpegEncoder(), FileOutput(self._stream_buffer)) 
+            if self.picam2 is None: 
+                self.open_camera() 
+                self.picam2.start_recording(JpegEncoder(), FileOutput(self._stream_buffer)) 
+            else: 
+                logger.warning("Camera was not closed before open")
         except Exception as e: 
             logger.warning(f"Failed start video streaming: {e}") 
 
     def stop(self):  
         logger.info("Stop video streaming")
         try:
-            self.picam2.stop_recording() 
-            self.picam2.stop() 
-            self.picam2.close() 
-            logger.info("Video streaming stopped")
+            if self.picam2 is not None: 
+                self.picam2.stop_recording() 
+                self.picam2.stop() 
+                self.picam2.close() 
+                self.picam2 = None 
+                logger.info("Video streaming stopped") 
+            else: 
+                logger.warning("Camera is not opened yet")
         except Exception as e: 
             logger.warning(f"Failed stop video streaming: {e}")
 
@@ -281,9 +289,9 @@ class WebServer(object):
                 except Exception as e:
                     logger.warning(f"Error for live video: {e}") 
                     self.send_error(404)
-            elif self.path == "/snapshot.jpg":
+            elif self.path == "/snapshot.png":
                 self.send_response(200)
-                self.send_header("Content-type", "image/jpeg")
+                self.send_header("Content-type", "image/png")
                 try: 
                     video_server = VideoServer() 
                     image = video_server.snapshot.read()
@@ -670,41 +678,41 @@ class WebsocketConnection(object):
                 logger.info("Video AF mode changed")
                 await self.send_status_response(0, "Apply video AF mode successfully", id) 
             else: 
-                await self.send_status_response(0, "Video AF mode is not changed", id)
+                pass # await self.send_status_response(0, "Video AF mode is not changed", id)
             if ("awb_mode" in params and video_server.apply_awb_mode(params["awb_mode"])): 
                 logger.info("Video AWB mode changed")
                 await self.send_status_response(0, "Apply video AWB mode successfully", id) 
             else: 
-                await self.send_status_response(0, "Video AWB mode is not changed", id) 
+                pass # await self.send_status_response(0, "Video AWB mode is not changed", id) 
             if ("brightness" in params and video_server.apply_brightness(params["brightness"])): 
                 logger.info("Video brightness changed")
                 await self.send_status_response(0, "Apply video brightness successfully", id) 
             else: 
-                await self.send_status_response(0, "Video brightness is not changed", id) 
+                pass # await self.send_status_response(0, "Video brightness is not changed", id) 
             # apply configurations 
             need_restart = False 
-            if ("transform" in params and video_server.apply_transform(params["transform"])): 
+            if ("transform" in params and video_server.update_transform(params["transform"])): 
                 logger.info("Video transform changed")
                 await self.send_status_response(0, "Apply video transform successfully", id) 
                 need_restart = True 
             else: 
-                await self.send_status_response(0, "Video transform is not changed", id)
-            if ("frame_rate" in params and video_server.apply_frame_rate(params["frame_rate"])): 
+                pass # await self.send_status_response(0, "Video transform is not changed", id)
+            if ("frame_rate" in params and video_server.update_frame_rate(params["frame_rate"])): 
                 logger.info("Video frame rate changed")
                 await self.send_status_response(0, "Apply video frame rate successfully", id) 
                 need_restart = True 
             else: 
-                await self.send_status_response(0, "Video frame rate is not changed", id)
-            if ("resolution" in params and video_server.apply_resolution(params["resolution"])): 
+                pass # await self.send_status_response(0, "Video frame rate is not changed", id)
+            if ("resolution" in params and video_server.update_resolution(params["resolution"])): 
                 logger.info("Video resolution changed")
                 await self.send_status_response(0, "Apply video resolution successfully", id) 
                 need_restart = True 
             else: 
-                await self.send_status_response(0, "Video resolution is not changed", id)
+                pass # await self.send_status_response(0, "Video resolution is not changed", id)
             # restart for configurations 
             if need_restart: 
                 logger.warning("Restart video to apply configurations")
-                await self.send_status_response(-1, "Restart video, please reconnect later", id) 
+                # await self.send_status_response(-1, "Restart video, please reconnect later", id) 
                 video_server.restart() 
         except Exception as e: 
             logger.warning(f"Error setup video: {e}") 
@@ -772,7 +780,7 @@ def main(config_file = None):
     config = {
         "ws_port": 8090, 
         "http_port": 8080, 
-        "video_config": "video.json", 
+        "video_config": "video_config.json", 
     }
     logger.info(f"Default camera config: {config}")
 

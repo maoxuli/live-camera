@@ -199,7 +199,7 @@ label, input {
         <div class="section_row">
             <label for="video_transform">Transform</label>
             <select id="video_transform">
-                <!-- <option value="0">Identity</option>
+                <!-- <option value="0" selected>Identity</option>
                 <option value="2">Horizontal Flip</option>
                 <option value="1">Vertical Flip</option>
                 <option value="3">180&#176 Rotation</option> -->
@@ -210,7 +210,7 @@ label, input {
             <select id="video_frame_rate">
                 <!-- <option value="0">10 fps</option>
                 <option value="1">15 fps(4:3)</option>
-                <option value="2">20 fps</option>
+                <option value="2" selected>20 fps</option>
                 <option value="3">25 fps</option>
                 <option value="4">30 fps</option> -->
             </select>
@@ -220,7 +220,7 @@ label, input {
             <select id="video_resolution">
                 <!-- <option value="0">640x480 (4:3)</option>
                 <option value="1">800x600 (4:3)</option>
-                <option value="2">1280x720 (16:9)</option>
+                <option value="2" selected>1280x720 (16:9)</option>
                 <option value="3">1920x1080 (16:9)</option> -->
             </select>
         </div>
@@ -229,13 +229,13 @@ label, input {
             <select id="video_af_mode">
                 <!-- <option value="0">Manual</option>
                 <option value="1">Auto</option>
-                <option value="2">Continuous</option> -->
+                <option value="2" selected>Continuous</option> -->
             </select>
         </div>
         <div class="section_row">
             <label for="video_awb_mode">AWB Mode</label>
             <select id="video_awb_mode">
-                <!-- <option value="0">Off</option>
+                <!-- <option value="0" selected>Off</option>
                 <option value="1">Auto</option>
                 <option value="2">Tungsten</option>
                 <option value="3">Fluorescent</option>
@@ -506,26 +506,26 @@ label, input {
         update_select(settings.resolution, "video_resolution");
         update_select(settings.af_mode, "video_af_mode"); 
         update_select(settings.awb_mode, "video_awb_mode"); 
-        document.getElementById("video_brightness_slider").value = settings.brightness; 
-        document.getElementById("video_brightness").value = settings.brightness;
+        document.getElementById("video_brightness_slider").value = settings.brightness.value * 10; 
+        document.getElementById("video_brightness").value = settings.brightness.value.toFixed(1);
         popup_message(status_handlers.get(CHECK_VIDEO_SETTINGS), "success", "Video settings refreshed")
     }
 
     function fill_select(sel, options) {
+        console.log(options)
         while (sel.firstChild) {                
             sel.removeChild(sel.firstChild);
         } 
-        if (options) {
-            options.forEach((item, index) => {
-                var opt = document.createElement("option");
-                opt.value= index;
-                opt.innerHTML = item;
-                sel.appendChild(opt);
-            });
-        }
+        options.forEach((item, index) => {
+            var opt = document.createElement("option");
+            opt.value= index;
+            opt.innerHTML = item.name;
+            sel.appendChild(opt);
+        });
     }
 
     function update_select(settings, element_id) {
+        console.log(settings)
         sel = document.getElementById(element_id); 
         fill_select(sel, settings.options);
         sel.options.selectedIndex = settings.selected;
@@ -539,7 +539,7 @@ label, input {
             "resolution": document.getElementById("video_resolution").options.selectedIndex, 
             "af_mode": document.getElementById("video_af_mode").options.selectedIndex, 
             "awb_mode": document.getElementById("video_awb_mode").options.selectedIndex, 
-            "brightness": document.getElementById("video_brightness").value 
+            "brightness": parseFloat(document.getElementById("video_brightness").value) 
         }
         var request = { "method": "setup_video", "params": params, "id": SETUP_VIDEO };
         send_message(request);
