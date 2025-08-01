@@ -1,17 +1,6 @@
 # LiveCamera/video streaming software 
 
+This folder includes the code for the camera software, specifically, it includes: 
 
-    from libcamera import Transform 
-    transform = Transform(hflip=transform["hflip"], vflip=transform["vflip"])
-    buffer_count = 2
-    queue=False
-
-    config = picam2.create_video_configuration(main={"size": (1920, 1080)}, lores={"size": (1280,
-    720)}, encode="lores")
-
-    # 30 fps 
-    'FrameDurationLimits': (33333, 33333)
-    # 25 fps 
-    controls={"FrameDurationLimits": (40000, 40000)}
-
-    logger.info(picam2.camera_configuration())
+1. Code for server software running on Raspberry Pi OS.  
+2. Code for web pages running in administrators' and users' web browser.  

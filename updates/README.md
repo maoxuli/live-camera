@@ -1,3 +1,3 @@
 # updates 
 
-This is the reserved location for software update. 
+This is the reserved location for software updates. 
