@@ -3087,18 +3087,18 @@
                 var fs = o.fullscreen();
                 _controls.fullscreenToggle.enabled(FullscreenElem.isFullscreen(o.elemHolder()), true);
 				
-				//if(_vars.fullscreenScaleMode != _vars.scaleMode)
-				//{
-					//o.resetElem(true, true);
-                    o.resetElem(true);
-					//o.zoom(o._tempMinZoom, 0);
-				//}
-                /*
+				// o.resetElem(true);
+				if(_vars.fullscreenScaleMode != _vars.scaleMode)
+				{
+					o.resetElem(true, true);
+                    
+					o.zoom(o._tempMinZoom, 0);
+				}
 				else if(_vars.fullscreenScaleMode == "smart" && _vars.scaleMode == "smart" && o.zoom() == o._tempMinZoom)
 				{
 					o.resetElem(true);
 					o.zoom(o._tempMinZoom, 0);
-				}*/
+				}
             }   
         }
 		

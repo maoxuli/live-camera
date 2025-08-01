@@ -1,124 +1,65 @@
-<!DOCTYPE html>
+<!DOCTYPE HTML>
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Live Camera Snapshot</title>
+<script src="js/jquery-1.11.3.min.js" type="text/javascript"></script>
+<script src="js/hammer.min.js" type="text/javascript"></script>
+<script src="js/TweenMax.min.js" type="text/javascript"></script>
+<script src="js/jquery.pinchzoomer.js" type="text/javascript"></script> 
+<link href="css/pinchzoomer.css" rel="stylesheet">
 <style>
-* {
-  box-sizing: border-box;
+html {
+  height:100%;
+	background: #FFF;
 }
 body {
-  margin: 0; 
-  padding: 0; 
-  font-size: 1rem;
+  margin:0;
+  padding:0;
+  height:100%
 }
-.container {
-  margin: auto; 
-  width: 100%;
-  overflow: hidden;
+.zoomHolder {
+  width:100%;
+  height:100%;
+  min-height:100%;
+  position:absolute;
+  overflow: hidden
 }
-.view {
-  position: relative;
-  width: 100%;
-  height: auto;
-  max-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: auto;
-}
-.view img {
-  position: relative;
-}
-.controls {
-  display: flex;
-  gap: 0.3rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0.3rem;
-  overflow: hidden; 
-}
-button {
-  flex-grow: 0;
-  flex-shrink: 0;
-  width:6rem; 
-  height:2rem;
-  font-size: 1rem; 
-  font-weight: normal;
-}
-button a {
-  color: inherit;
-  text-decoration: none;
+.controlHolder
+{
+  right: auto;
+	left: 50%;
+	transform: translateX(-50%);
+  font-size: 0;
   white-space: nowrap;
 }
-.overlay {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+.fullscreenToggle, .zoomIn, .zoomOut
+{
+	display: inline-block;
+	margin: 0 10px;
+}
+.saveBtn {
+	background: url(../assets/download.png) no-repeat;
+}
+.backBtn {
+	background: url(../assets/close.png) no-repeat;
 }
 </style>
 </head>
 <body>
-<div class="container">
-  <div id="view" class="view">
-    <img id="image" style="width:100%;height:auto" src="snapshot.png" onload="update_image_fit()">
-  </div>
-  <div id="controls" class="controls">
-    <button><a href="snapshot.png" download>Save</a></button>
-    <button onclick="goback()">Close</button>
+<div class="zoomHolder">
+  <img data-src="snapshot.png" data-elem="pinchzoomer" data-options="maxZoom:4;scaleMode:proportionalInside;appendControls:false"/>
+  <div class="controlHolder" data-elem="controlHolder">
+    <div class="zoomIn" data-elem="zoomIn"></div>
+    <div class="zoomOut" data-elem="zoomOut"></div>
+    <a href="snapshot.png" download><div class="fullscreenToggle saveBtn"></div></a>
+    <div class="fullscreenToggle backBtn" onclick="goback()"></div>
   </div>
 </div>
 <script>
 function goback() {
   window.location = "camera.html";
-}
-function fit_view() {
-  console.log("fit view")
-  // max height 
-  max_height = document.documentElement.clientHeight; 
-  // var view = document.getElementById("view");
-  // view.style.max_width = max_height + "px"; 
-  console.log("max height: " + max_height)
-  // potential height 
-  var image = document.getElementById("image");
-  // console.log("image width: " + image.naturalWidth);
-  // console.log("image height: " + image.naturalHeight);
-  var image_scale = image.naturalWidth/image.naturalHeight 
-  console.log("image scale: " + image_scale) 
-  var view = document.getElementById("view");
-  // console.log("view width: " + view.clientWidth);
-  // console.log("view height: " + view.clientHeight);
-  console.log("view width: " + view.clientWidth) 
-  var image_height = Math.ceil(view.clientWidth / image_scale) 
-  console.log("image height: " + image_height)
-  var controls = document.getElementById("controls");
-  if (image_height > max_height - 50) {
-    // image is taller
-    controls.classList.add("overlay")
-    view.style.height = max_height + "px";
-    image.style.height = "100%";
-    image.style.width = "auto";
-  }
-  else { 
-    // image is wider 
-    controls.classList.remove("overlay")
-    view.style.height = "auto"; 
-    image.style.width = "100%";
-    image.style.height = "auto";
-  }
-}
-function update_image_fit() {
-  console.log("update image fit")
-  var image = document.getElementById("image");
-  if (image.style.width == "100%" || image.style.height == "100%") {
-    fit_view() 
-  }
-}
-window.onresize = function() {
-  console.log('onresize...');
-  update_image_fit(); 
 }
 </script>
 </body>
