@@ -3244,7 +3244,7 @@
 					{
 						controlElem = controlElem.eq(0);
 						controlVars = Utils.stringToObject("{" + controlElem.data("options") + "}");
-						controls[controlName] = new ToggleElem(controlElem, controlVars);
+						controls[controlName] = new ToggleElem(controlElem, defaultVars);
 					}
 				}
 			}
