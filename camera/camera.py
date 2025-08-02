@@ -85,9 +85,9 @@ class StreamBuffer(io.BufferedIOBase):
 # to manage the video streaming and snapshot. 
 
 from picamera2 import Picamera2
-from picamera2.encoders import JpegEncoder
+from picamera2.encoders import MJPEGEncoder
 from picamera2.outputs import FileOutput
-from libcamera import Transform, controls
+from libcamera import Transform
 
 from video_config import VideoConfig 
 
@@ -233,7 +233,7 @@ class VideoServer(object):
         try: 
             if self.picam2 is None: 
                 self.open_camera() 
-                self.picam2.start_recording(JpegEncoder(), FileOutput(self._stream_buffer)) 
+                self.picam2.start_recording(MJPEGEncoder(bitrate=32000000), FileOutput(self._stream_buffer)) 
             else: 
                 logger.warning("Camera was not closed before open")
         except Exception as e: 

@@ -2919,10 +2919,10 @@
 		o.controls(pzObj.controls);
 		o.on(PinchZoomer.ZOOM, onZoom);
 		o.on(PinchZoomer.ELEM_CHANGE, onElemChange);
-        o.on(PinchZoomer.ELEM_HOLDER_CHANGE, onElemHolderChange);
+        // o.on(PinchZoomer.ELEM_HOLDER_CHANGE, onElemHolderChange);
         
 		onElemChange();
-		onElemHolderChange();
+		// onElemHolderChange();
 		onFullscreenToggle();
 		onZoom(true);
 		
