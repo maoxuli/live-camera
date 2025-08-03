@@ -306,7 +306,11 @@ class WebServer(object):
                     self.send_error(404)
             else:
                 if self.path == "/": 
-                    self.path = "/camera.html"
+                    self.path = "/camera.html" 
+                elif not self.path.endswith(".html"): 
+                    html_path = self.path + ".html" 
+                    if os.path.exists(self.translate_path(html_path)):
+                        self.path = html_path 
                 return super().do_GET()
 
     def __init__(self, port = 8080): 

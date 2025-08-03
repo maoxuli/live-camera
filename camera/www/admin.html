@@ -150,6 +150,14 @@ label, input {
     border: none;
     background-color: transparent;
 }
+.navi {
+    padding: 20px; 
+    text-align: center;
+}
+.navi a {
+    display: inline-block;
+    margin: 0 10px;
+}
 </style>
 </head>
 <body>
@@ -279,6 +287,13 @@ label, input {
         <div class="section_row center">
             <button class="big_button" id="restart_system" onclick="restart_system()">Restart</button>
             <button class="big_button" id="shutdow_system" onclick="shutdown_system()">Shutdown</button>
+        </div>
+    </div>
+    <div class="section">
+        <div class="navi">
+            <a href="camera">Live Video</a>
+            <a href="snapshot">Snapshot</a>
+            <a href="speed">Speed Test</a>
         </div>
     </div>
 </div>
