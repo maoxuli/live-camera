@@ -283,10 +283,18 @@ label, input {
     </div>
 </div>
 <script>
-    var hostname = window.location.hostname;
-    if (!hostname) hostname = "127.0.0.1";  
-    var url = "ws://" + hostname + ":8090/camera"
-    var ws = new WebSocket(url);
+let hostname = window.location.hostname;
+if (!hostname) hostname = "127.0.0.1";  
+let url = "ws://" + hostname + ":8090/camera"
+let ws = null;
+
+function connectWebSocket() {
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
+
+    ws = new WebSocket(url);
     ws.onopen = (event) => {
         console.log("WebSocket connection opened:", event);
         // checking initial status 
@@ -310,247 +318,256 @@ label, input {
         var response = JSON.parse(event.data); 
         handle_response(response)
     };
+}
 
-    function send_message(message) {
-        var data = JSON.stringify(message); 
-        console.log("send: " + data)
-        ws.send(data); 
+function send_message(message) {
+    var data = JSON.stringify(message); 
+    console.log("send: " + data)
+    ws.send(data); 
+}
+
+connectWebSocket(); 
+
+// pre-defined command ID 
+const RESTART_SYSTEM = 1; 
+const SHUTDOWN_SYSTEM = 2; 
+
+const CHECK_SOFTWARE_VERSIONS = 3;
+const INSTALL_LATEST_SOFTWARE = 4;
+const INSTALL_FALLBACK_SOFTWARE = 5;
+
+const CHECK_WIFI_AP_STATUS = 6;
+const SETUP_WIFI_AP = 7;
+
+const CHECK_WIFI_STA_STATUS = 8; 
+const SETUP_WIFI_STA = 9; 
+
+const CHECK_VIDEO_SETTINGS = 10; 
+const SETUP_VIDEO = 11; 
+
+// there will be a "result" handler for each command 
+// which is set with the command functions 
+const result_handlers = new Map();
+
+// error status will display in the section 
+// corresponding to the command function 
+const status_handlers = new Map(); 
+
+status_handlers.set(RESTART_SYSTEM, "system_message")
+status_handlers.set(SHUTDOWN_SYSTEM, "system_message")
+
+status_handlers.set(CHECK_SOFTWARE_VERSIONS, "software_message")
+status_handlers.set(INSTALL_LATEST_SOFTWARE, "software_message")
+status_handlers.set(INSTALL_FALLBACK_SOFTWARE, "software_message")
+
+status_handlers.set(CHECK_WIFI_AP_STATUS, "wifi_ap_message")
+status_handlers.set(SETUP_WIFI_AP, "wifi_ap_message")
+
+status_handlers.set(CHECK_WIFI_STA_STATUS, "wifi_sta_message")
+status_handlers.set(SETUP_WIFI_STA, "wifi_sta_message")
+
+status_handlers.set(CHECK_VIDEO_SETTINGS, "video_message")
+status_handlers.set(SETUP_VIDEO, "video_message")
+
+function handle_response(response) {
+    id = "id" in response ? response.id : null;  
+    if ("result" in response && result_handlers.has(id)) {
+        result_handlers.get(id)(response.result)
     }
-
-    // pre-defined command ID 
-    const RESTART_SYSTEM = 1; 
-    const SHUTDOWN_SYSTEM = 2; 
-
-    const CHECK_SOFTWARE_VERSIONS = 3;
-    const INSTALL_LATEST_SOFTWARE = 4;
-    const INSTALL_FALLBACK_SOFTWARE = 5;
-
-    const CHECK_WIFI_AP_STATUS = 6;
-    const SETUP_WIFI_AP = 7;
-
-    const CHECK_WIFI_STA_STATUS = 8; 
-    const SETUP_WIFI_STA = 9; 
-
-    const CHECK_VIDEO_SETTINGS = 10; 
-    const SETUP_VIDEO = 11; 
-
-    // there will be a "result" handler for each command 
-    // which is set with the command functions 
-    const result_handlers = new Map();
-
-    // error status will display in the section 
-    // corresponding to the command function 
-    const status_handlers = new Map(); 
-
-    status_handlers.set(RESTART_SYSTEM, "system_message")
-    status_handlers.set(SHUTDOWN_SYSTEM, "system_message")
-
-    status_handlers.set(CHECK_SOFTWARE_VERSIONS, "software_message")
-    status_handlers.set(INSTALL_LATEST_SOFTWARE, "software_message")
-    status_handlers.set(INSTALL_FALLBACK_SOFTWARE, "software_message")
-
-    status_handlers.set(CHECK_WIFI_AP_STATUS, "wifi_ap_message")
-    status_handlers.set(SETUP_WIFI_AP, "wifi_ap_message")
-
-    status_handlers.set(CHECK_WIFI_STA_STATUS, "wifi_sta_message")
-    status_handlers.set(SETUP_WIFI_STA, "wifi_sta_message")
-
-    status_handlers.set(CHECK_VIDEO_SETTINGS, "video_message")
-    status_handlers.set(SETUP_VIDEO, "video_message")
-
-    function handle_response(response) {
-        id = "id" in response ? response.id : null;  
-        if ("result" in response && result_handlers.has(id)) {
-            result_handlers.get(id)(response.result)
-        }
-        if ("error" in response && status_handlers.has(id)) {
-            self.handle_status(status_handlers.get(id), response.error) 
-        }
+    if ("error" in response && status_handlers.has(id)) {
+        self.handle_status(status_handlers.get(id), response.error) 
     }
+}
 
-    function handle_status(element_id, error) {
-        message = error.message;  
-        code = error.code; 
-        type = code == 0 ? "success" : "error"; 
-        popup_message(element_id, type, message)
-    }
+function handle_status(element_id, error) {
+    message = error.message;  
+    code = error.code; 
+    type = code == 0 ? "success" : "error"; 
+    popup_message(element_id, type, message)
+}
 
-    function popup_message(element_id, type, message) {
-        const statusMessagesContainer = document.getElementById(element_id);
-        
-        const statusRow = document.createElement('div');
-        statusRow.classList.add('status_row', type); 
-
-        const statusText = document.createElement('div')
-        statusText.classList.add('status_text')
-        statusText.textContent = message; 
-
-        const closeButton = document.createElement('button');
-        closeButton.classList.add('status_btn');
-        closeButton.textContent = '×'; 
-
-        closeButton.onclick = function() {
-            statusMessagesContainer.removeChild(statusRow); 
-        };
-
-        statusRow.appendChild(statusText);
-        statusRow.appendChild(closeButton);
-        statusMessagesContainer.appendChild(statusRow);
-    }
-
-    function check_system_status() {
-
-    }
-
-    function update_system_status() {
-
-    }
-
-    function restart_system() {
-        var request = { "method": "restart_system", "id": RESTART_SYSTEM };
-        send_message(request);
-    }
-
-    function shutdown_system() {
-        var request = { "method": "shutdown_system", "id": SHUTDOWN_SYSTEM };
-        send_message(request);
-    }
-
-    result_handlers.set(CHECK_SOFTWARE_VERSIONS, update_software_versions)
-    function check_software_versions() {
-        var request = { "method": "check_software_versions", "id": CHECK_SOFTWARE_VERSIONS };
-        send_message(request);
-    }
-
-    function update_software_versions(versions) {
-        console.log(versions)
-        document.getElementById("installed_version").value = versions.installed_version; 
-        document.getElementById("latest_version").value = versions.latest_version; 
-        document.getElementById("fallback_version").value = versions.fallback_version; 
-        popup_message(status_handlers.get(CHECK_SOFTWARE_VERSIONS), "success", "Software versions refreshed")
-    }
-
-    result_handlers.set(INSTALL_LATEST_SOFTWARE, update_software_versions)
-    function install_latest_software() {
-        version = document.getElementById("latest_version").value 
-        console.log("latest_version: " + version)
-        params = { "version": version }
-        var request = { "method": "install_software", "params": params, "id": INSTALL_LATEST_SOFTWARE };
-        send_message(request);
-    }
+function popup_message(element_id, type, message) {
+    const statusMessagesContainer = document.getElementById(element_id);
     
-    result_handlers.set(INSTALL_FALLBACK_SOFTWARE, update_software_versions)
-    function install_fallback_software() {
-        version = document.getElementById("fallback_version").value 
-        console.log("fallback_version: " + version)
-        params = { "version": version }
-        var request = { "method": "install_software", "params": params, "id": INSTALL_FALLBACK_SOFTWARE };
-        send_message(request);
-    }
+    const statusRow = document.createElement('div');
+    statusRow.classList.add('status_row', type); 
 
-    result_handlers.set(CHECK_WIFI_AP_STATUS, update_wifi_ap_status) 
-    function check_wifi_ap_status() {
-        var request = { "method": "check_wifi_ap_status", "id": CHECK_WIFI_AP_STATUS };
-        send_message(request);
-    }
+    const statusText = document.createElement('div')
+    statusText.classList.add('status_text')
+    statusText.textContent = message; 
 
-    function update_wifi_ap_status(wifi) {
-        console.log(wifi)
-        ip = wifi.address ? wifi.address.addr : ""
-        document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
-        document.getElementById("wifi_ap_password").value = wifi.setup.password 
-        document.getElementById("wifi_ap_ip").value = ip  
-        popup_message(status_handlers.get(CHECK_WIFI_AP_STATUS), "success", "WiFi status refreshed")
-    }
+    const closeButton = document.createElement('button');
+    closeButton.classList.add('status_btn');
+    closeButton.textContent = '×'; 
 
-    function setup_wifi_ap() {
+    closeButton.onclick = function() {
+        statusMessagesContainer.removeChild(statusRow); 
+    };
 
-    }
+    statusRow.appendChild(statusText);
+    statusRow.appendChild(closeButton);
+    statusMessagesContainer.appendChild(statusRow);
+}
 
-    result_handlers.set(CHECK_WIFI_STA_STATUS, update_wifi_sta_status) 
-    function check_wifi_sta_status() {
-        var request = { "method": "check_wifi_sta_status", "id": CHECK_WIFI_STA_STATUS };
-        send_message(request);
-    }
+function check_system_status() {
 
-    function update_wifi_sta_status(wifi) {
-        console.log(wifi);
-        ip = wifi.address ? wifi.address.addr : ""
-        document.getElementById("wifi_sta_ssid").value = wifi.setup.ssid 
-        document.getElementById("wifi_sta_password").value = wifi.setup.password 
-        document.getElementById("wifi_sta_ip").value = ip 
-        popup_message(status_handlers.get(CHECK_WIFI_STA_STATUS), "success", "WiFi status refreshed")
-    }
+}
 
-    result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
-    function setup_wifi_sta() {
-        ssid = document.getElementById("wifi_sta_ssid").value 
-        password = document.getElementById("wifi_sta_password").value 
-        console.log("WiFi STA SSID: " + ssid)
-        console.log("WiFi STA password: " + password)
-        params = { "ssid": ssid, "password": password}
-        var request = { "method": "setup_wifi_sta", "params": params, "id": SETUP_WIFI_STA };
-        send_message(request);
-    }
+function update_system_status() {
 
-    result_handlers.set(CHECK_VIDEO_SETTINGS, update_video_settings) 
-    function check_video_settings() {
-        var request = { "method": "check_video_settings", "id": CHECK_VIDEO_SETTINGS };
-        send_message(request);
-    }
+}
 
-    function update_video_settings(settings) {
-        console.log(settings);
-        update_select(settings.transform, "video_transform");
-        update_select(settings.frame_rate, "video_frame_rate");
-        update_select(settings.resolution, "video_resolution");
-        update_select(settings.af_mode, "video_af_mode"); 
-        update_select(settings.awb_mode, "video_awb_mode"); 
-        document.getElementById("video_brightness_slider").value = settings.brightness.value * 10; 
-        document.getElementById("video_brightness").value = settings.brightness.value.toFixed(1);
-        popup_message(status_handlers.get(CHECK_VIDEO_SETTINGS), "success", "Video settings refreshed")
-    }
+function restart_system() {
+    var request = { "method": "restart_system", "id": RESTART_SYSTEM };
+    send_message(request);
+}
 
-    function fill_select(sel, options) {
-        console.log(options)
-        while (sel.firstChild) {                
-            sel.removeChild(sel.firstChild);
-        } 
-        options.forEach((item, index) => {
-            var opt = document.createElement("option");
-            opt.value= index;
-            opt.innerHTML = item.name;
-            sel.appendChild(opt);
-        });
-    }
+function shutdown_system() {
+    var request = { "method": "shutdown_system", "id": SHUTDOWN_SYSTEM };
+    send_message(request);
+}
 
-    function update_select(settings, element_id) {
-        console.log(settings)
-        sel = document.getElementById(element_id); 
-        fill_select(sel, settings.options);
-        sel.options.selectedIndex = settings.selected;
-    }
+result_handlers.set(CHECK_SOFTWARE_VERSIONS, update_software_versions)
+function check_software_versions() {
+    var request = { "method": "check_software_versions", "id": CHECK_SOFTWARE_VERSIONS };
+    send_message(request);
+}
 
-    result_handlers.set(SETUP_VIDEO, update_video_settings) 
-    function setup_video() {
-        params = {
-            "transform": document.getElementById("video_transform").options.selectedIndex, 
-            "frame_rate": document.getElementById("video_frame_rate").options.selectedIndex, 
-            "resolution": document.getElementById("video_resolution").options.selectedIndex, 
-            "af_mode": document.getElementById("video_af_mode").options.selectedIndex, 
-            "awb_mode": document.getElementById("video_awb_mode").options.selectedIndex, 
-            "brightness": parseFloat(document.getElementById("video_brightness").value) 
-        }
-        var request = { "method": "setup_video", "params": params, "id": SETUP_VIDEO };
-        send_message(request);
-    }
+function update_software_versions(versions) {
+    console.log(versions)
+    document.getElementById("installed_version").value = versions.installed_version; 
+    document.getElementById("latest_version").value = versions.latest_version; 
+    document.getElementById("fallback_version").value = versions.fallback_version; 
+    popup_message(status_handlers.get(CHECK_SOFTWARE_VERSIONS), "success", "Software versions refreshed")
+}
 
-    var video_brightness_slider = document.getElementById("video_brightness_slider");
-    var video_brightness = document.getElementById("video_brightness");
-    video_brightness.value = (video_brightness_slider.value / 10).toFixed(1);
-    video_brightness_slider.addEventListener("input", function() {
-        video_brightness.value = (this.value / 10).toFixed(1);
+result_handlers.set(INSTALL_LATEST_SOFTWARE, update_software_versions)
+function install_latest_software() {
+    version = document.getElementById("latest_version").value 
+    console.log("latest_version: " + version)
+    params = { "version": version }
+    var request = { "method": "install_software", "params": params, "id": INSTALL_LATEST_SOFTWARE };
+    send_message(request);
+}
+
+result_handlers.set(INSTALL_FALLBACK_SOFTWARE, update_software_versions)
+function install_fallback_software() {
+    version = document.getElementById("fallback_version").value 
+    console.log("fallback_version: " + version)
+    params = { "version": version }
+    var request = { "method": "install_software", "params": params, "id": INSTALL_FALLBACK_SOFTWARE };
+    send_message(request);
+}
+
+result_handlers.set(CHECK_WIFI_AP_STATUS, update_wifi_ap_status) 
+function check_wifi_ap_status() {
+    var request = { "method": "check_wifi_ap_status", "id": CHECK_WIFI_AP_STATUS };
+    send_message(request);
+}
+
+function update_wifi_ap_status(wifi) {
+    console.log(wifi)
+    ip = wifi.address ? wifi.address.addr : ""
+    document.getElementById("wifi_ap_ssid").value = wifi.setup.ssid 
+    document.getElementById("wifi_ap_password").value = wifi.setup.password 
+    document.getElementById("wifi_ap_ip").value = ip  
+    popup_message(status_handlers.get(CHECK_WIFI_AP_STATUS), "success", "WiFi status refreshed")
+}
+
+function setup_wifi_ap() {
+
+}
+
+result_handlers.set(CHECK_WIFI_STA_STATUS, update_wifi_sta_status) 
+function check_wifi_sta_status() {
+    var request = { "method": "check_wifi_sta_status", "id": CHECK_WIFI_STA_STATUS };
+    send_message(request);
+}
+
+function update_wifi_sta_status(wifi) {
+    console.log(wifi);
+    ip = wifi.address ? wifi.address.addr : ""
+    document.getElementById("wifi_sta_ssid").value = wifi.setup.ssid 
+    document.getElementById("wifi_sta_password").value = wifi.setup.password 
+    document.getElementById("wifi_sta_ip").value = ip 
+    popup_message(status_handlers.get(CHECK_WIFI_STA_STATUS), "success", "WiFi status refreshed")
+}
+
+result_handlers.set(SETUP_WIFI_STA, update_wifi_sta_status) 
+function setup_wifi_sta() {
+    ssid = document.getElementById("wifi_sta_ssid").value 
+    password = document.getElementById("wifi_sta_password").value 
+    console.log("WiFi STA SSID: " + ssid)
+    console.log("WiFi STA password: " + password)
+    params = { "ssid": ssid, "password": password}
+    var request = { "method": "setup_wifi_sta", "params": params, "id": SETUP_WIFI_STA };
+    send_message(request);
+}
+
+result_handlers.set(CHECK_VIDEO_SETTINGS, update_video_settings) 
+function check_video_settings() {
+    var request = { "method": "check_video_settings", "id": CHECK_VIDEO_SETTINGS };
+    send_message(request);
+}
+
+function update_video_settings(settings) {
+    console.log(settings);
+    update_select(settings.transform, "video_transform");
+    update_select(settings.frame_rate, "video_frame_rate");
+    update_select(settings.resolution, "video_resolution");
+    update_select(settings.af_mode, "video_af_mode"); 
+    update_select(settings.awb_mode, "video_awb_mode"); 
+    document.getElementById("video_brightness_slider").value = settings.brightness.value * 10; 
+    document.getElementById("video_brightness").value = settings.brightness.value.toFixed(1);
+    popup_message(status_handlers.get(CHECK_VIDEO_SETTINGS), "success", "Video settings refreshed")
+}
+
+function fill_select(sel, options) {
+    console.log(options)
+    while (sel.firstChild) {                
+        sel.removeChild(sel.firstChild);
+    } 
+    options.forEach((item, index) => {
+        var opt = document.createElement("option");
+        opt.value= index;
+        opt.innerHTML = item.name;
+        sel.appendChild(opt);
     });
+}
+
+function update_select(settings, element_id) {
+    console.log(settings)
+    sel = document.getElementById(element_id); 
+    fill_select(sel, settings.options);
+    sel.options.selectedIndex = settings.selected;
+}
+
+result_handlers.set(SETUP_VIDEO, update_video_settings) 
+function setup_video() {
+    params = {
+        "transform": document.getElementById("video_transform").options.selectedIndex, 
+        "frame_rate": document.getElementById("video_frame_rate").options.selectedIndex, 
+        "resolution": document.getElementById("video_resolution").options.selectedIndex, 
+        "af_mode": document.getElementById("video_af_mode").options.selectedIndex, 
+        "awb_mode": document.getElementById("video_awb_mode").options.selectedIndex, 
+        "brightness": parseFloat(document.getElementById("video_brightness").value) 
+    }
+    var request = { "method": "setup_video", "params": params, "id": SETUP_VIDEO };
+    send_message(request);
+}
+
+var video_brightness_slider = document.getElementById("video_brightness_slider");
+var video_brightness = document.getElementById("video_brightness");
+video_brightness.value = (video_brightness_slider.value / 10).toFixed(1);
+video_brightness_slider.addEventListener("input", function() {
+    video_brightness.value = (this.value / 10).toFixed(1);
+});
+
+document.onvisibilitychange = () => {
+    if (document.visibilityState === "visible") {
+        connectWebSocket() 
+    }
+};
 </script>
 </body>
 </html>

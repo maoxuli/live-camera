@@ -46,7 +46,7 @@ body {
 </head>
 <body>
 <div class="zoomHolder">
-  <img data-src="stream.mjpg" data-elem="pinchzoomer" data-options="maxZoom:6;scaleMode:proportionalInside;fullscreenScaleMode:proportionalOutside" oncontextmenu="return false;"/>
+  <img alt="" id="video" data-src="stream.mjpg" data-elem="pinchzoomer" data-options="maxZoom:6;scaleMode:proportionalInside;fullscreenScaleMode:proportionalOutside" oncontextmenu="return false;"/>
   <div class="controlHolder" data-elem="controlHolder">
     <div class="zoomIn" data-elem="zoomIn"></div>
     <div class="zoomOut" data-elem="zoomOut"></div>
@@ -58,6 +58,12 @@ body {
 function snapshot() {
   window.location = "snapshot.html";
 }
+document.onvisibilitychange = () => {
+  if (document.visibilityState === "visible") {
+    document.getElementById("video").src=""; 
+    document.getElementById("video").src="stream.mjpg"
+  }
+};
 </script>
 </body>
 </html>
