@@ -1,3 +1,8 @@
+## [0.3] = 2025-08-04
+### Changed 
+- Use hostname in URL 
+- Use default http port for web server 
+
 ## [0.2.2] = 2025-08-03
 ### Fixed
 - Reconnect on mobile device when switching from background to foreground.
