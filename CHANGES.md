@@ -1,4 +1,4 @@
-## [0.3.1] = 2025-08-04
+## [0.3.3] = 2025-08-04
 ### Added 
 - Display hostname in admin page 
 
@@ -7,13 +7,10 @@
 - Use hostname in URL 
 - Use default http port for web server 
 
-## [0.2.2] = 2025-08-03
-### Fixed
-- Reconnect on mobile device when switching from background to foreground.
-
-## [0.2.1] = 2025-08-02
+## [0.2.2] = 2025-08-02
 ### Fixed
 - Fixed bugs for pinch operations 
+- Reconnect on mobile device when switching from background to foreground.
 
 ## [0.2] = 2025-08-01
 ### Changes

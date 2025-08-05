@@ -285,7 +285,7 @@ label, input {
         <div class="section_title">System Control</div>
         <div id="system_message"></div>
         <div class="section_row">
-            <label for="system_hostname">IP</label>
+            <label for="system_hostname">Hostname</label>
             <input type="text" id="system_hostname" value="" readonly>
             <button id="check_system_status" onclick="check_system_status()">Check</button>
         </div>
@@ -439,7 +439,7 @@ function check_system_status() {
 
 function update_system_status(system) {
     console.log(system)
-    document.getElementById("system_hostname").value = system.hostname 
+    document.getElementById("system_hostname").value = system.hostname + ".local"
     popup_message(status_handlers.get(CHECK_SYSTEM_STATUS), "success", "System status refreshed")
 }
 
