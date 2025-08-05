@@ -103,5 +103,5 @@ sudo netfilter-persistent save
 
 # reboot system 
 echo "Configuration done!" 
-echo "Please restart system with: sudo shutdown -r now" 
-# sudo shutdown -r now 
+echo "Please restart system with: sudo reboot" 
+# sudo reboot
