@@ -1,11 +1,9 @@
-## [0.3.6] = 2025-08-04
-### Added 
-- Display hostname in admin page 
-
 ## [0.3] = 2025-08-04
 ### Changed 
 - Use hostname in URL 
+- Display hostname in admin page 
 - Use default http port for web server 
+- Allow modification of WiFi AP SSID 
 
 ## [0.2.2] = 2025-08-02
 ### Fixed
