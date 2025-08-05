@@ -167,7 +167,7 @@ label, input {
         <div id="wifi_ap_message"></div>
         <div class="section_row">
             <label for="wifi_ap_ssid">SSID</label>
-            <input type="text" id="wifi_ap_ssid" value="" readonly>
+            <input type="text" id="wifi_ap_ssid" value="">
         </div>
         <div class="section_row">
             <label for="wifi_ap_password">Password</label>
@@ -179,6 +179,7 @@ label, input {
         </div>
         <div class="section_row">
             <button id="check_wifi_ap_status" onclick="check_wifi_ap_status()">Check</button>
+            <button id="setup_wifi_ap" onclick="setup_wifi_ap()">Update</button>
         </div>
     </div>
     <div class="section">
@@ -500,8 +501,13 @@ function update_wifi_ap_status(wifi) {
     popup_message(status_handlers.get(CHECK_WIFI_AP_STATUS), "success", "WiFi status refreshed")
 }
 
+result_handlers.set(SETUP_WIFI_AP, update_wifi_ap_status)
 function setup_wifi_ap() {
-
+    ssid = document.getElementById("wifi_ap_ssid").value 
+    console.log("WiFi AP SSID: " + ssid)
+    params = { "ssid": ssid}
+    var request = { "method": "setup_wifi_ap", "params": params, "id": SETUP_WIFI_AP };
+    send_message(request);
 }
 
 result_handlers.set(CHECK_WIFI_STA_STATUS, update_wifi_sta_status) 

@@ -602,7 +602,40 @@ class WebsocketConnection(object):
 
     async def setup_wifi_ap(self, params = None, id = None): 
         logger.info(f"setup_wifi_ap: {params}") 
-        await self.send_status_response(-1, "Not implemented", id)
+        if "ssid" in params: 
+            ssid = params["ssid"] 
+            try: 
+                logger.info("check wifi settings")
+                current_ssid, current_password = check_wifi_ap_id() 
+                logger.info(f"{current_ssid=}") 
+                logger.info(f"{current_password=}")
+            except Exception as e: 
+                logger.waning(f"Error to check wifi settings: {e}")
+
+            if ssid == current_ssid: 
+                await self.send_status_response(-1, "WiFi settings has no change", id)
+            else: 
+                try: 
+                    code = bash_run([os.path.join(self.network_dir, "setup-wifi-ap.sh"), ssid, current_password])
+                    if code == 0: 
+                        await self.send_status_response(code, "WiFi settings changed", id) 
+                        try: 
+                            logger.info("restart network") 
+                            script = os.path.join(self.network_dir, "restart-wifi.sh")
+                            code = bash_run_d(["sudo", "-b", "bash", "-c", f"sleep 5; bash {script}"])
+                            if code == 0: 
+                                await self.send_status_response(-1, "Network restart, please reconnect later", id)
+                            else: 
+                                await self.send_status_response(code, "Failed to restart network", id)
+                        except Exception as e: 
+                            await self.send_status_response(-1, "Error to restart network", id)
+                    else: 
+                        await self.send_status_response(code, "Failed to change WiFi settings", id) 
+                except Exception as e: 
+                    logger.warning(f"Error to change wifi settings: {e}") 
+                    await self.send_status_response(-1, "Error to change WiFi settings", id) 
+        else: 
+            await self.send_status_response(-1, "WiFi SSID is not set", id) 
 
     async def check_wifi_sta_status(self, params = None, id = None): 
         logger.info("check_wifi_sta_status")
