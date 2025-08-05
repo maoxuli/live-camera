@@ -1,3 +1,7 @@
+## [0.3.1] = 2025-08-04
+### Added 
+- Display hostname in admin page 
+
 ## [0.3] = 2025-08-04
 ### Changed 
 - Use hostname in URL 

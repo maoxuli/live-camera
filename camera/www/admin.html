@@ -284,6 +284,11 @@ label, input {
     <div class="section">
         <div class="section_title">System Control</div>
         <div id="system_message"></div>
+        <div class="section_row">
+            <label for="system_hostname">IP</label>
+            <input type="text" id="system_hostname" value="" readonly>
+            <button id="check_system_status" onclick="check_system_status()">Check</button>
+        </div>
         <div class="section_row center">
             <button class="big_button" id="restart_system" onclick="restart_system()">Restart</button>
             <button class="big_button" id="shutdow_system" onclick="shutdown_system()">Shutdown</button>
@@ -344,21 +349,22 @@ function send_message(message) {
 connectWebSocket(); 
 
 // pre-defined command ID 
-const RESTART_SYSTEM = 1; 
-const SHUTDOWN_SYSTEM = 2; 
+const CHECK_SYSTEM_STATUS = 10;
+const RESTART_SYSTEM = 11; 
+const SHUTDOWN_SYSTEM = 12; 
 
-const CHECK_SOFTWARE_VERSIONS = 3;
-const INSTALL_LATEST_SOFTWARE = 4;
-const INSTALL_FALLBACK_SOFTWARE = 5;
+const CHECK_SOFTWARE_VERSIONS = 20;
+const INSTALL_LATEST_SOFTWARE = 21;
+const INSTALL_FALLBACK_SOFTWARE = 22;
 
-const CHECK_WIFI_AP_STATUS = 6;
-const SETUP_WIFI_AP = 7;
+const CHECK_WIFI_AP_STATUS = 30;
+const SETUP_WIFI_AP = 31;
 
-const CHECK_WIFI_STA_STATUS = 8; 
-const SETUP_WIFI_STA = 9; 
+const CHECK_WIFI_STA_STATUS = 40; 
+const SETUP_WIFI_STA = 41; 
 
-const CHECK_VIDEO_SETTINGS = 10; 
-const SETUP_VIDEO = 11; 
+const CHECK_VIDEO_SETTINGS = 50; 
+const SETUP_VIDEO = 51; 
 
 // there will be a "result" handler for each command 
 // which is set with the command functions 
@@ -368,6 +374,7 @@ const result_handlers = new Map();
 // corresponding to the command function 
 const status_handlers = new Map(); 
 
+status_handlers.set(CHECK_SYSTEM_STATUS, "system_message")
 status_handlers.set(RESTART_SYSTEM, "system_message")
 status_handlers.set(SHUTDOWN_SYSTEM, "system_message")
 
@@ -424,12 +431,16 @@ function popup_message(element_id, type, message) {
     statusMessagesContainer.appendChild(statusRow);
 }
 
+result_handlers.set(CHECK_SYSTEM_STATUS, update_system_status)
 function check_system_status() {
-
+    var request = { "method": "check_system_status", "id": CHECK_SYSTEM_STATUS };
+    send_message(request);
 }
 
-function update_system_status() {
-
+function update_system_status(system) {
+    console.log(system)
+    document.getElementById("system_hostname").value = system.hostname 
+    popup_message(status_handlers.get(CHECK_SYSTEM_STATUS), "success", "System status refreshed")
 }
 
 function restart_system() {
