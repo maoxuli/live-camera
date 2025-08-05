@@ -110,11 +110,10 @@ install_software () {
         return 3
     fi  
 
-    if [ -d "${VERSION_DIR}/network" ]; then 
-        echo "Install network package" 
-        rm -rf "${SOFTWARE_DIR}/network" 
-        mv -f "${VERSION_DIR}/network" "${SOFTWARE_DIR}/network" 
-        bash "${SOFTWARE_DIR}/network/network-init.sh" 
+    if [ -d "${VERSION_DIR}/camera" ]; then 
+        echo "Install camera package" 
+        rm -rf "${SOFTWARE_DIR}/camera" 
+        mv -f "${VERSION_DIR}/camera" "${SOFTWARE_DIR}/camera"
     fi 
 
     if [ -d "${VERSION_DIR}/system" ]; then 
@@ -124,13 +123,22 @@ install_software () {
         bash "${SOFTWARE_DIR}/system/system-init.sh"     
     fi 
 
-    if [ -d "${VERSION_DIR}/camera" ]; then 
-        echo "Install camera package" 
-        rm -rf "${SOFTWARE_DIR}/camera" 
-        mv -f "${VERSION_DIR}/camera" "${SOFTWARE_DIR}/camera"
+    if [ -d "${VERSION_DIR}/network" ]; then 
+        echo "Install network package" 
+        rm -rf "${SOFTWARE_DIR}/network" 
+        mv -f "${VERSION_DIR}/network" "${SOFTWARE_DIR}/network" 
+        bash "${SOFTWARE_DIR}/network/network-init.sh" 
     fi 
 
-    mv -f "${VERSION_DIR}/VERSION.txt" "${SOFTWARE_DIR}/VERSION.txt"
+    if [ -f "${VERSION_DIR}/VERSION.txt" ]; then 
+        mv -f "${VERSION_DIR}/VERSION.txt" "${SOFTWARE_DIR}/VERSION.txt"
+    fi 
+    if [ -f "${VERSION_DIR}/CHANGES.md" ]; then 
+        mv -f "${VERSION_DIR}/CHANGES.md" "${SOFTWARE_DIR}/CHANGES.md"
+    fi 
+    if [ -f "${VERSION_DIR}/README.md" ]; then 
+        mv -f "${VERSION_DIR}/README.md" "${SOFTWARE_DIR}/README.md"
+    fi 
     rm -rf "${VERSION_DIR}" 
     echo "Installed software package ${PACKAGE}"
 }
