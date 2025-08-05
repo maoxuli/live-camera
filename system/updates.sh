@@ -121,7 +121,7 @@ install_software () {
         echo "Install system package" 
         rm -rf "${SOFTWARE_DIR}/system" 
         mv -f "${VERSION_DIR}/system" "${SOFTWARE_DIR}/system" 
-        bash "${SOFTWARE_DIR}/system/camera-init.sh"     
+        bash "${SOFTWARE_DIR}/system/system-init.sh"     
     fi 
 
     if [ -d "${VERSION_DIR}/camera" ]; then 

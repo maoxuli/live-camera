@@ -1,4 +1,4 @@
-## [0.3.3] = 2025-08-04
+## [0.3.4] = 2025-08-04
 ### Added 
 - Display hostname in admin page 
 
