@@ -469,7 +469,7 @@ class WebsocketConnection(object):
     async def check_system_status(self, params = None, id = None): 
         logger.info("check_system_status") 
         result = {
-            "hostname": socket.hostname
+            "hostname": socket.gethostname()
         }
         await self.send_result_response(result, id) 
 
