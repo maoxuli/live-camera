@@ -615,16 +615,7 @@ class WebsocketConnection(object):
                     code = bash_run([os.path.join(self.network_dir, "setup-wifi-ap.sh"), ssid, current_password])
                     if code == 0: 
                         await self.send_status_response(code, "WiFi settings changed", id) 
-                        try: 
-                            logger.info("restart network") 
-                            script = os.path.join(self.network_dir, "restart-wifi.sh")
-                            code = bash_run_d(["sudo", "-b", "bash", "-c", f"sleep 5; bash {script}"])
-                            if code == 0: 
-                                await self.send_status_response(-1, "Network restart, please reconnect later", id)
-                            else: 
-                                await self.send_status_response(code, "Failed to restart network", id)
-                        except Exception as e: 
-                            await self.send_status_response(-1, "Error to restart network", id)
+                        self.restart_system(id = id)
                     else: 
                         await self.send_status_response(code, "Failed to change WiFi settings", id) 
                 except Exception as e: 
