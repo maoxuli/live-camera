@@ -15,8 +15,24 @@ echo "CONF_FILE: ${CONF_FILE}"
 sudo cat "${CONF_FILE}" 
 echo "" 
 
-echo "Reset SSID and PASSWORD..." 
+echo "Reset SSID and PASSWORD to ${SSID} ${PASSWORD}" 
 sudo sed -i "s/^\([[:space:]]*ssid[[:space:]]*=\)[[:space:]]*.*/\1${SSID}/" ${CONF_FILE}
 sudo sed -i "s/^\([[:space:]]*wpa_passphrase[[:space:]]*=\)[[:space:]]*.*/\1${PASSWORD}/" ${CONF_FILE}
 sudo cat "${CONF_FILE}"
 echo ""
+
+# Reset hostname in /etc/hosts 
+HOSTS_FILE="/etc/hosts" 
+echo "HOSTS_FILE: ${HOSTS_FILE}" 
+sudo cat "${HOSTS_FILE}" 
+echo "" 
+
+echo "Reset hostname for local IP to ${SSID}" 
+sudo sed -i "s/^\([[:space:]]*127.0.1.1[[:space:]]*\)[[:space:]]*.*/\1${SSID}/" ${HOSTS_FILE}
+sudo cat "${HOSTS_FILE}"
+echo ""
+
+# Reset hostname in /etc/hostname 
+HOSTS_FILE="/etc/hosts" 
+echo "Reset hostname to ${SSID}" 
+sudo hostnamectl hostname "${SSID}"

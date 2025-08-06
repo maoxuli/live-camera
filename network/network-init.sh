@@ -65,6 +65,19 @@ sudo chmod 600 /etc/wpa_supplicant/wpa_supplicant.conf
 echo "Disable wap_supplicant service" 
 sudo systemctl disable wpa_supplicant
 
+# using hostname as AP ssid 
+SSID="$(hostnamectl hostname --static)"
+echo "SSID: ${SSID}" 
+
+if [ -n "${SSID}" ]; then 
+    cat "${BASH_DIR}/config/hostapd.conf"
+    echo "" 
+    echo "Replace SSID..." 
+    sed -i "s/^\([[:space:]]*ssid[[:space:]]*=\)[[:space:]]*.*/\1${SSID}/" "${BASH_DIR}/config/hostapd.conf"
+    cat "${BASH_DIR}/config/hostapd.conf"
+    echo "" 
+fi 
+
 # hostapd is used to manage the WiFi AP connection 
 # but it swill be start by systemd service, after uap0 created 
 echo "Configuring hostapd..."  

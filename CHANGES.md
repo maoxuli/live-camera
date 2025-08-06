@@ -1,13 +1,9 @@
-## [0.3.1] = 2025-08-04
-### Released 
-- Release for milestone  
-
 ## [0.3] = 2025-08-04
 ### Changed 
-- Use hostname in URL 
-- Display hostname in admin page 
+- Use hostname for access point SSID 
+- Update hostname when reset access point SSID 
+- Allow modification of access point SSID from admin page 
 - Use default http port for web server 
-- Allow modification of WiFi AP SSID 
 
 ## [0.2.2] = 2025-08-02
 ### Fixed

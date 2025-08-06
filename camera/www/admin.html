@@ -163,7 +163,7 @@ label, input {
 <body>
 <div class="container">
     <div class="section">
-        <div class="section_title">WiFi AP</div>
+        <div class="section_title">Camera AP</div>
         <div id="wifi_ap_message"></div>
         <div class="section_row">
             <label for="wifi_ap_ssid">SSID</label>
@@ -174,7 +174,7 @@ label, input {
             <input type="text" id="wifi_ap_password" value="" readonly>
         </div>
         <div class="section_row">
-            <label for="wifi_ap_ip">IP</label>
+            <label for="wifi_ap_ip">Device IP</label>
             <input type="text" id="wifi_ap_ip" value="" readonly>
         </div>
         <div class="section_row">
@@ -183,7 +183,7 @@ label, input {
         </div>
     </div>
     <div class="section">
-        <div class="section_title">WiFi STA</div>
+        <div class="section_title">WiFi Connection</div>
         <div id="wifi_sta_message"></div>
         <div class="section_row">
             <label for="wifi_sta_ssid">SSID</label>
@@ -194,7 +194,7 @@ label, input {
             <input type="text" id="wifi_sta_password" value="">
         </div>
         <div class="section_row">
-            <label for="wifi_sta_ip">IP</label>
+            <label for="wifi_sta_ip">Network IP</label>
             <input type="text" id="wifi_sta_ip" value="" readonly>
         </div>
         <div class="section_row">
@@ -203,7 +203,7 @@ label, input {
         </div>
     </div>
     <div class="section">
-        <div class="section_title">Video</div>
+        <div class="section_title">Video Streaming</div>
         <div id="video_message"></div>
         <div class="section_row">
             <label for="video_transform">Transform</label>
@@ -264,7 +264,7 @@ label, input {
         </div>
     </div>
     <div class="section">
-        <div class="section_title">Software</div>
+        <div class="section_title">Software Update</div>
         <div id="software_message"></div>
         <div class="section_row">
             <label for="installed_version">Current Version</label>
@@ -283,13 +283,8 @@ label, input {
         </div>
     </div>
     <div class="section">
-        <div class="section_title">System</div>
+        <div class="section_title">System Control</div>
         <div id="system_message"></div>
-        <div class="section_row">
-            <label for="system_hostname">Hostname</label>
-            <input type="text" id="system_hostname" value="" readonly>
-            <button id="check_system_status" onclick="check_system_status()">Check</button>
-        </div>
         <div class="section_row center">
             <button class="big_button" id="restart_system" onclick="restart_system()">Restart</button>
             <button class="big_button" id="shutdow_system" onclick="shutdown_system()">Shutdown</button>
@@ -434,14 +429,11 @@ function popup_message(element_id, type, message) {
 
 result_handlers.set(CHECK_SYSTEM_STATUS, update_system_status)
 function check_system_status() {
-    var request = { "method": "check_system_status", "id": CHECK_SYSTEM_STATUS };
-    send_message(request);
+
 }
 
 function update_system_status(system) {
-    console.log(system)
-    document.getElementById("system_hostname").value = system.hostname + ".local"
-    popup_message(status_handlers.get(CHECK_SYSTEM_STATUS), "success", "System status refreshed")
+
 }
 
 function restart_system() {

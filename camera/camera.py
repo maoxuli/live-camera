@@ -339,7 +339,6 @@ class WebServer(object):
 # Websocket server is used for bi-directional communications between camera and web pages.  
 import websockets
 import netifaces 
-import socket 
 
 def bash_run_d(command_args): 
     logger.info(f"{command_args=}")
@@ -468,10 +467,7 @@ class WebsocketConnection(object):
 
     async def check_system_status(self, params = None, id = None): 
         logger.info("check_system_status") 
-        result = {
-            "hostname": socket.gethostname()
-        }
-        await self.send_result_response(result, id) 
+        await self.send_status_response(-1, "Not implemented", id) 
 
     async def restart_system(self, params = None, id = None): 
         logger.warning("restart_system")
