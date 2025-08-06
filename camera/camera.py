@@ -615,7 +615,7 @@ class WebsocketConnection(object):
                     code = bash_run([os.path.join(self.network_dir, "setup-wifi-ap.sh"), ssid, current_password])
                     if code == 0: 
                         await self.send_status_response(code, "WiFi settings changed", id) 
-                        self.restart_system(id = id)
+                        await self.restart_system(id = id)
                     else: 
                         await self.send_status_response(code, "Failed to change WiFi settings", id) 
                 except Exception as e: 

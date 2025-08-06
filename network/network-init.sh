@@ -50,9 +50,9 @@ if [ -z "${SSID}" ]; then
 fi 
 
 if [ -n "${SSID}" ]; then 
+    echo "Replace SSID/password..." 
     cat "${BASH_DIR}/config/wpa_supplicant.conf"
     echo "" 
-    echo "Replace SSID/password..." 
     sed -i "s/^\([[:space:]]*ssid[[:space:]]*=\)[[:space:]]*.*/\1${SSID}/" "${BASH_DIR}/config/wpa_supplicant.conf"
     sed -i "s/^\([[:space:]]*psk[[:space:]]*=\)[[:space:]]*.*/\1${PSK}/" "${BASH_DIR}/config/wpa_supplicant.conf"
     cat "${BASH_DIR}/config/wpa_supplicant.conf"
@@ -70,9 +70,9 @@ SSID="$(hostnamectl hostname --static)"
 echo "SSID: ${SSID}" 
 
 if [ -n "${SSID}" ]; then 
+    echo "Replace SSID..." 
     cat "${BASH_DIR}/config/hostapd.conf"
     echo "" 
-    echo "Replace SSID..." 
     sed -i "s/^\([[:space:]]*ssid[[:space:]]*=\)[[:space:]]*.*/\1${SSID}/" "${BASH_DIR}/config/hostapd.conf"
     cat "${BASH_DIR}/config/hostapd.conf"
     echo "" 
