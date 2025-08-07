@@ -1,11 +1,13 @@
+## [0.3.1] = 2025-08-06
+### Fixed 
+- Fix bug for processing interruption by client disconnection. 
+
 ## [0.3] = 2025-08-04
 ### Changed 
 - Use hostname for access point SSID 
 - Update hostname when reset access point SSID 
 - Allow modification of access point SSID from admin page 
 - Use default http port for web server 
-### Fixed 
-- Fix bug for processing interrupted when client disconnected
 
 ## [0.2.2] = 2025-08-02
 ### Fixed

@@ -553,8 +553,8 @@ class WebsocketConnection(object):
             await self.send_status_response(-1, "Installation takes time, please wait...", id) 
             code = bash_run([os.path.join(self.software_dir, "updates.sh"), "install", version]) 
             if code == 0: 
-                logger.info(f"Install software {version} successfully")
-                await self.send_status_response(0, f"Installed software {version} successfully", id) 
+                logger.info(f"Software {version} installed successfully")
+                await self.send_status_response(0, f"Software {version} installed successfully", id) 
                 await self.restart_system(id = id)
             else: 
                 logger.warning(f"Failed to install software: {code}")
