@@ -421,10 +421,14 @@ class WebsocketConnection(object):
         logger.info(f"{self.updates_dir=}") 
 
     # send back a message to client 
+    # do not interrupt the processing in any way 
     async def send_response(self, response): 
-        logger.info(f"Send response: {response}")
-        message = json.dumps(response)  
-        await self._websocket.send(message)
+        try: 
+            logger.info(f"Send response: {response}")
+            message = json.dumps(response)  
+            await self._websocket.send(message)
+        except Exception as e: 
+            logger.warning(f"Error to send response: {e}")
 
     async def send_status_response(self, code = -1, message = "", id = None): 
         logger.info("Send status response...")
@@ -434,22 +438,17 @@ class WebsocketConnection(object):
         logger.info("Send result response...")
         await self.send_response({ "result": result, "id": id }) 
 
-    # handle requests until the connection is closed  
+    # handle requests 
+    # only interrupted by disconnected (receive error) 
     async def handle_requests(self): 
-        try: 
-            async for message in self._websocket: 
-                try: 
-                    request = json.loads(message) 
-                    logger.info(f"Request received: {request}")
-                    await self.handle_request(request)
-                except websockets.exceptions.ConnectionClosed: 
-                    raise 
-                except Exception as e: 
-                    logger.warning(f"Error while handling request: {e}")
-        except websockets.exceptions.ConnectionClosed:
-            raise 
-        except Exception as e: 
-            logger.error(f"Error while handling requests: {e}")
+        async for message in self._websocket: 
+            try: 
+                request = json.loads(message) 
+                logger.info(f"Request received: {request}")
+                await self.handle_request(request)
+            except Exception as e: 
+                logger.warning(f"Error to handle request: {e}")
+                await self.send_status_response(-1, f"{message}:{e}", 0)
 
     async def handle_request(self, request): 
         assert(isinstance(request, dict))
@@ -459,11 +458,14 @@ class WebsocketConnection(object):
         logger.debug(f"{method=}")
         logger.debug(f"{params=}") 
         logger.debug(f"{id=}") 
-        if method in self._handlers: 
-            await self._handlers[method](params=params, id=id) 
-        else: 
-            logger.warning(f"Method not in list: {self._handlers.keys()}") 
-            await self.send_status_response(-1, "Unsupported method", id)
+        try: 
+            if method not in self._handlers: 
+                logger.warning(f"{method} is not in {self._handlers.keys()}") 
+                raise Exception(f"Unsupported method: {method}", id) 
+            else: 
+                await self._handlers[method](params=params, id=id) 
+        except Exception as e: 
+            await self.send_status_response(-1, str(e), id)
 
     async def check_system_status(self, params = None, id = None): 
         logger.info("check_system_status") 
@@ -471,42 +473,35 @@ class WebsocketConnection(object):
 
     async def restart_system(self, params = None, id = None): 
         logger.warning("restart_system")
-        try: 
-            code = bash_run_d(["sudo", "-b", "bash", "-c", "sleep 5; reboot"]) 
-            if code == 0: 
-                await self.send_status_response(-1, "System restart, please reconnect later", id) 
-            else: 
-                 await self.send_status_response(code, "Failed to restart the system", id) 
-        except Exception as e: 
-            logger.warning(f"Error to restart the system: {e}") 
-            await self.send_status_response(-1, "Error to restart the system", id)
+        code = bash_run_d(["sudo", "-b", "bash", "-c", "sleep 5; reboot"]) 
+        if code == 0: 
+            logger.info("Restart system successfully")
+            await self.send_status_response(-1, "System restart, please reconnect later", id) 
+        else: 
+            logger.info(f"Failed to restart system: {code}")
+            raise Exception(f"Failed to restart system: {code}") 
 
     async def shutdown_system(self, params = None, id = None): 
         logger.warning("shutdown_system")
-        try: 
-            code = bash_run_d(["sudo", "-b", "bash", "-c", "sleep 5; shutdown now"])  
-            if code == 0: 
-                await self.send_status_response(-1, "System shutdown in seconds", id) 
-            else: 
-                 await self.send_status_response(code, "Failed to shutdown the system", id) 
-        except Exception as e: 
-            logger.warning(f"Error to shutdown the system: {e}") 
-            await self.send_status_response(-1, "Error to shutdown the system", id)
+        code = bash_run_d(["sudo", "-b", "bash", "-c", "sleep 5; shutdown now"])  
+        if code == 0: 
+            logger.info("Shutdown system successfully")
+            await self.send_status_response(-1, "System shutdown in 10 seconds", id) 
+        else: 
+            logger.info(f"Failed to shutdown system: {code}")
+            raise Exception(f"Failed to shutdown system: {code}") 
    
     async def check_software_versions(self, params = None, id = None): 
         logger.info("check_software_versions")
-        try: 
-            code = bash_run([os.path.join(self.system_dir, "updates.sh"), "check"])
-            if code == 0: 
-                logger.info("Software updates checked successfully")
-                await self.send_status_response(0, "Software updates checked successfully", id)
-            else: 
-                logger.warning("Failed to check software updates")
-                await self.send_status_response(code, "Failed to check software updates", id)
-        except Exception as e: 
-            logger.warning(f"Error to check software updates: {e}") 
-            await self.send_status_response(-1, "Error to check software updates", id) 
-
+        # first try to check software updates 
+        code = bash_run([os.path.join(self.software_dir, "updates.sh"), "check"])
+        if code == 0: 
+            logger.info("Check software updates successfully")
+            await self.send_status_response(0, "Check software updates successfully", id)
+        else: 
+            logger.warning(f"Failed to check software updates: {code}")
+            await self.send_status_response(-1, f"Failed to check software updates: {code}", id)
+        # collection versions info 
         installed_version = None 
         try: 
             version_file = os.path.join(self.software_dir, "VERSION.txt")
@@ -519,8 +514,8 @@ class WebsocketConnection(object):
                         installed_version = value.strip()
                         break 
         except Exception as e: 
-            logger.warning(f"Error check installed version: {e}")
-            await self.send_status_response(-1, "Error to check installed version", id)
+            logger.warning(f"Error to check installed version: {e}")
+            await self.send_status_response(-1, f"Error to check installed version: {e}", id)
         logger.info(f"{installed_version=}")
 
         latest_version = None 
@@ -538,7 +533,7 @@ class WebsocketConnection(object):
                         fallback_version = value.strip() 
         except Exception as e: 
             logger.warning(f"Error to check updated versions: {e}")
-            await self.send_status_response(-1, "Error to check updated versions", id)    
+            await self.send_status_response(-1, f"Error to check updated versions: {e}", id)    
         logger.info(f"{latest_version=}")
         logger.info(f"{fallback_version=}")
 
@@ -554,41 +549,40 @@ class WebsocketConnection(object):
         version = params["version"] if "version" in params else None 
         logger.info(f"{version=}")
         if version:
-            try: 
-                logger.info(f"install software {version}") 
-                await self.send_status_response(0, "Installation takes time, please wait...", id) 
-                code = bash_run([os.path.join(self.system_dir, "updates.sh"), "install", version]) 
-                if code == 0: 
-                    await self.send_status_response(code, f"Software {version} installed successfully", id) 
-                    await self.restart_system(id = id)
-                else: 
-                    await self.send_status_response(code, f"Failed to install software {version}", id) 
-            except Exception as e: 
-                logger.warning(f"Error to install software: {e}") 
-                await self.send_status_response(-1, f"Error to install software {version}", id) 
+            logger.info(f"install software {version}") 
+            await self.send_status_response(0, "Installation takes time, please wait...", id) 
+            code = bash_run([os.path.join(self.software_dir, "updates.sh"), "install", version]) 
+            if code == 0: 
+                logger.info(f"Install software {version} successfully")
+                await self.send_status_response(0, f"Installed software {version} successfully", id) 
+                await self.restart_system(id = id)
+            else: 
+                logger.warning(f"Failed to install software: {code}")
+                await self.send_status_response(-1, f"Failed to install software: {code}", id) 
         else: 
-            await self.send_status_response(-1, "Software version is not set", id)
+            raise Exception("Software version is not set")
 
     async def check_wifi_ap_status(self, params = None, id = None): 
         logger.info("check_wifi_ap_status")
+        # check SSID and password 
         try: 
             ssid, password = check_wifi_ap_id() 
             logger.info(f"{ssid=}") 
             logger.info(f"{password=}")
             if ssid is None: 
-                await self.send_status_response(0, "WiFi AP is not setup", id) 
+                await self.send_status_response(-1, "WiFi AP is not setup", id) 
         except Exception as e: 
-            logger.warning(f"Error checking wifi ap: {e}")
-            await self.send_status_response(-1, "Error to check WiFi AP", id)  
-            
+            logger.warning(f"Error to check WiFi API: {e}")
+            await self.send_status_response(-1, f"Error to check WiFi AP: {e}", id)  
+        # check IP address 
         try: 
             address = check_network_addr("uap0")
             logger.info(f"uap0: {address}")
             if address is None: 
-                await self.send_status_response(-1, "WiFi is not activated" , id) 
+                await self.send_status_response(-1, "WiFi AP is not activated" , id) 
         except Exception as e: 
-            logger.waning(f"Error to check wifi IP address: {e}") 
-            await self.send_status_response(-1, "Error to check IP address", id)
+            logger.waning(f"Error to check IP address: {e}") 
+            await self.send_status_response(-1, f"Error to check IP address: {e}", id)
             
         result = {
             "setup": { "ssid": ssid, "password": password }, 
@@ -599,9 +593,10 @@ class WebsocketConnection(object):
     async def setup_wifi_ap(self, params = None, id = None): 
         logger.info(f"setup_wifi_ap: {params}") 
         if "ssid" in params: 
-            ssid = params["ssid"] 
+            ssid = params["ssid"]
+            # validate SSID  
             try: 
-                logger.info("check wifi settings")
+                logger.info("check current wifi settings")
                 current_ssid, current_password = check_wifi_ap_id() 
                 logger.info(f"{current_ssid=}") 
                 logger.info(f"{current_password=}")
@@ -609,23 +604,22 @@ class WebsocketConnection(object):
                 logger.waning(f"Error to check wifi settings: {e}")
 
             if ssid == current_ssid: 
-                await self.send_status_response(-1, "WiFi settings has no change", id)
+                await self.send_status_response(0, "WiFi settings has no change", id)
             else: 
-                try: 
-                    code = bash_run([os.path.join(self.network_dir, "setup-wifi-ap.sh"), ssid, current_password])
-                    if code == 0: 
-                        await self.send_status_response(code, "WiFi settings changed", id) 
-                        await self.restart_system(id = id)
-                    else: 
-                        await self.send_status_response(code, "Failed to change WiFi settings", id) 
-                except Exception as e: 
-                    logger.warning(f"Error to change wifi settings: {e}") 
-                    await self.send_status_response(-1, "Error to change WiFi settings", id) 
+                code = bash_run([os.path.join(self.network_dir, "setup-wifi-ap.sh"), ssid, current_password])
+                if code == 0: 
+                    logger.info("WiFi settings changed")
+                    await self.send_status_response(0, "WiFi settings changed", id) 
+                    await self.restart_system(id = id)
+                else: 
+                    logger.waning(f"Failed to change WiFi settings: {code}") 
+                    await self.send_status_response(-1, f"Failed to change WiFi settings: {code}", id) 
         else: 
-            await self.send_status_response(-1, "WiFi SSID is not set", id) 
+            raise Exception("WiFi SSID is not set") 
 
     async def check_wifi_sta_status(self, params = None, id = None): 
         logger.info("check_wifi_sta_status")
+        # check SSID and password
         try: 
             ssid, password = check_wifi_sta_id() 
             logger.info(f"{ssid=}")
@@ -634,8 +628,8 @@ class WebsocketConnection(object):
                 await self.send_status_response(0, "WiFi STA is not setup", id) 
         except Exception as e: 
             logger.warning(f"Error to check wifi sta: {e}")
-            await self.send_status_response(-1, "Error to check WiFi STA", id)  
-        
+            await self.send_status_response(-1, f"Error to check WiFi STA: {e}", id)  
+        # check IP address 
         try: 
             address = check_network_addr("wlan0")
             logger.info(f"wlan0: {address}")
@@ -643,7 +637,7 @@ class WebsocketConnection(object):
                 await self.send_status_response(-1, "WiFi is not connected" , id)
         except Exception as e: 
             logger.waning(f"Error to check IP address: {e}") 
-            await self.send_status_response(-1, "Error to check IP address", id)
+            await self.send_status_response(-1, f"Error to check IP address: {e}", id)
             
         result = {
             "setup": { "ssid": ssid, "password": password }, 
@@ -656,6 +650,7 @@ class WebsocketConnection(object):
         if "ssid" in params: 
             ssid = params["ssid"] 
             password = params["password"] if "password" in params else None 
+            # validate SSID 
             try: 
                 logger.info("check wifi settings")
                 current_ssid, current_password = check_wifi_sta_id() 
@@ -667,84 +662,66 @@ class WebsocketConnection(object):
             if ssid == current_ssid and password == current_password: 
                 await self.send_status_response(-1, "WiFi settings has no change", id)
             else: 
-                try: 
-                    code = bash_run([os.path.join(self.network_dir, "setup-wifi-sta.sh"), ssid, password])
-                    if code == 0: 
-                        await self.send_status_response(code, "WiFi settings changed", id) 
-                        try: 
-                            logger.info("restart network") 
-                            script = os.path.join(self.network_dir, "restart-wifi.sh")
-                            code = bash_run_d(["sudo", "-b", "bash", "-c", f"sleep 5; bash {script}"])
-                            if code == 0: 
-                                await self.send_status_response(-1, "Network restart, please reconnect later", id)
-                            else: 
-                                await self.send_status_response(code, "Failed to restart network", id)
-                        except Exception as e: 
-                            await self.send_status_response(-1, "Error to restart network", id)
-                    else: 
-                        await self.send_status_response(code, "Failed to change WiFi settings", id) 
-                except Exception as e: 
-                    logger.warning(f"Error to change wifi settings: {e}") 
-                    await self.send_status_response(-1, "Error to change WiFi settings", id) 
+                code = bash_run([os.path.join(self.network_dir, "setup-wifi-sta.sh"), ssid, password])
+                if code == 0: 
+                    logger.info("WiFi settings changed")
+                    await self.send_status_response(0, "WiFi settings changed", id) 
+                    await self.restart_system(id=id)
+                else: 
+                    logger.warning(f"Failed to change WiFi settings: {e}")
+                    await self.send_status_response(-1, f"Failed to change WiFi settings: {e}", id) 
         else: 
-            await self.send_status_response(-1, "WiFi SSID is not set", id) 
+            raise Exception("WiFi SSID is not set") 
 
     async def check_video_settings(self, params = None, id = None): 
         logger.info("check_video_settings") 
-        try: 
-            await self.send_result_response(VideoServer().settings, id)
-        except Exception as e: 
-            logger.warning(f"Error to check video settings: {e}") 
-            await self.send_status_response(-1, "Error to check video settings", id) 
+        await self.send_result_response(VideoServer().settings, id)
 
     async def setup_video(self, params = None, id = None): 
         logger.info(f"setup_video: {params}") 
         video_server = VideoServer() 
-        try: 
-            # apply controls 
-            if ("af_mode" in params and video_server.apply_af_mode(params["af_mode"])): 
-                logger.info("Video AF mode changed")
-                await self.send_status_response(0, "Apply video AF mode successfully", id) 
-            else: 
-                pass # await self.send_status_response(0, "Video AF mode is not changed", id)
-            if ("awb_mode" in params and video_server.apply_awb_mode(params["awb_mode"])): 
-                logger.info("Video AWB mode changed")
-                await self.send_status_response(0, "Apply video AWB mode successfully", id) 
-            else: 
-                pass # await self.send_status_response(0, "Video AWB mode is not changed", id) 
-            if ("brightness" in params and video_server.apply_brightness(params["brightness"])): 
-                logger.info("Video brightness changed")
-                await self.send_status_response(0, "Apply video brightness successfully", id) 
-            else: 
-                pass # await self.send_status_response(0, "Video brightness is not changed", id) 
-            # apply configurations 
-            need_restart = False 
-            if ("transform" in params and video_server.update_transform(params["transform"])): 
-                logger.info("Video transform changed")
-                await self.send_status_response(0, "Apply video transform successfully", id) 
-                need_restart = True 
-            else: 
-                pass # await self.send_status_response(0, "Video transform is not changed", id)
-            if ("frame_rate" in params and video_server.update_frame_rate(params["frame_rate"])): 
-                logger.info("Video frame rate changed")
-                await self.send_status_response(0, "Apply video frame rate successfully", id) 
-                need_restart = True 
-            else: 
-                pass # await self.send_status_response(0, "Video frame rate is not changed", id)
-            if ("resolution" in params and video_server.update_resolution(params["resolution"])): 
-                logger.info("Video resolution changed")
-                await self.send_status_response(0, "Apply video resolution successfully", id) 
-                need_restart = True 
-            else: 
-                pass # await self.send_status_response(0, "Video resolution is not changed", id)
-            # restart for configurations 
-            if need_restart: 
-                logger.warning("Restart video to apply configurations")
-                # await self.send_status_response(-1, "Restart video, please reconnect later", id) 
-                video_server.restart() 
-        except Exception as e: 
-            logger.warning(f"Error setup video: {e}") 
-            await self.send_status_response(-1, "Error setup video", id)
+        # apply controls 
+        if ("af_mode" in params and video_server.apply_af_mode(params["af_mode"])): 
+            logger.info("Video AF mode changed")
+            await self.send_status_response(0, "Apply video AF mode successfully", id) 
+        else: 
+            pass # await self.send_status_response(0, "Video AF mode is not changed", id)
+        if ("awb_mode" in params and video_server.apply_awb_mode(params["awb_mode"])): 
+            logger.info("Video AWB mode changed")
+            await self.send_status_response(0, "Apply video AWB mode successfully", id) 
+        else: 
+            pass # await self.send_status_response(0, "Video AWB mode is not changed", id) 
+        if ("brightness" in params and video_server.apply_brightness(params["brightness"])): 
+            logger.info("Video brightness changed")
+            await self.send_status_response(0, "Apply video brightness successfully", id) 
+        else: 
+            pass # await self.send_status_response(0, "Video brightness is not changed", id) 
+        # apply configurations 
+        need_restart = False 
+        if ("transform" in params and video_server.update_transform(params["transform"])): 
+            logger.info("Video transform changed")
+            await self.send_status_response(0, "Apply video transform successfully", id) 
+            need_restart = True 
+        else: 
+            pass # await self.send_status_response(0, "Video transform is not changed", id)
+        if ("frame_rate" in params and video_server.update_frame_rate(params["frame_rate"])): 
+            logger.info("Video frame rate changed")
+            await self.send_status_response(0, "Apply video frame rate successfully", id) 
+            need_restart = True 
+        else: 
+            pass # await self.send_status_response(0, "Video frame rate is not changed", id)
+        if ("resolution" in params and video_server.update_resolution(params["resolution"])): 
+            logger.info("Video resolution changed")
+            await self.send_status_response(0, "Apply video resolution successfully", id) 
+            need_restart = True 
+        else: 
+            pass # await self.send_status_response(0, "Video resolution is not changed", id)
+        # restart for configurations 
+        if need_restart: 
+            logger.warning("Restart video to apply configurations")
+            # await self.send_status_response(-1, "Restart video, please reconnect later", id) 
+            video_server.restart() 
+
 
 @singleton
 class WebsocketServer(object): 
@@ -756,7 +733,7 @@ class WebsocketServer(object):
         self._loop = None 
         self._thread = None 
 
-    # handle client connection
+    # connection handler 
     async def handler(self, websocket):
         logger.info(f"Websocket connection from {websocket.remote_address[0]}") 
         connection = WebsocketConnection(websocket)
@@ -765,13 +742,13 @@ class WebsocketServer(object):
             await connection.handle_requests() 
             await websocket.wait_closed()
         except websockets.exceptions.ConnectionClosed as e: 
-            logger.warning(e)
+            logger.warning(f"Connection closed: {e}")
         except Exception as e: 
-            logger.warning(e)
+            logger.warning(f"Connection handler error: {e}")
         finally: 
             logger.error(f"Remove websocket connection from {websocket.remote_address[0]}")
             self._connections.remove(connection)
-            
+
     def run_forever(self):
         async def _run(): 
             logger.info(f"Run webocket server at port {self.port}") 

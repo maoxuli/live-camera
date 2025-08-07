@@ -389,11 +389,17 @@ status_handlers.set(SETUP_VIDEO, "video_message")
 
 function handle_response(response) {
     id = "id" in response ? response.id : null;  
-    if ("result" in response && result_handlers.has(id)) {
-        result_handlers.get(id)(response.result)
+    if (id > 0) {
+        if ("result" in response && result_handlers.has(id)) {
+            result_handlers.get(id)(response.result)
+        }
+        if ("error" in response && status_handlers.has(id)) {
+            self.handle_status(status_handlers.get(id), response.error) 
+        }
     }
-    if ("error" in response && status_handlers.has(id)) {
-        self.handle_status(status_handlers.get(id), response.error) 
+    else {
+        console.warn("General response")
+        console.warn(response)
     }
 }
 

@@ -10,10 +10,7 @@ echo "VERSION_URL: ${VERSION_URL}"
 PACKAGE_URL="https://github.com/maoxuli/live-camera/releases/download"
 echo "PACKAGE_URL: ${PACKAGE_URL}" 
 
-SYSTEM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
-echo "SYSTEM_DIR: ${SYSTEM_DIR}" 
-
-SOFTWARE_DIR="$(cd "${SYSTEM_DIR}/.." && pwd)" 
+SOFTWARE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" 
 echo "SOFTWARE_DIR: ${SOFTWARE_DIR}" 
 
 UPDATES_DIR="$(cd "${SOFTWARE_DIR}/updates" && pwd)" 
@@ -110,10 +107,11 @@ install_software () {
         return 3
     fi  
 
-    if [ -d "${VERSION_DIR}/camera" ]; then 
-        echo "Install camera package" 
-        rm -rf "${SOFTWARE_DIR}/camera" 
-        mv -f "${VERSION_DIR}/camera" "${SOFTWARE_DIR}/camera"
+    if [ -d "${VERSION_DIR}/network" ]; then 
+        echo "Install network package" 
+        rm -rf "${SOFTWARE_DIR}/network" 
+        mv -f "${VERSION_DIR}/network" "${SOFTWARE_DIR}/network" 
+        bash "${SOFTWARE_DIR}/network/network-init.sh" 
     fi 
 
     if [ -d "${VERSION_DIR}/system" ]; then 
@@ -123,13 +121,15 @@ install_software () {
         bash "${SOFTWARE_DIR}/system/system-init.sh"     
     fi 
 
-    if [ -d "${VERSION_DIR}/network" ]; then 
-        echo "Install network package" 
-        rm -rf "${SOFTWARE_DIR}/network" 
-        mv -f "${VERSION_DIR}/network" "${SOFTWARE_DIR}/network" 
-        bash "${SOFTWARE_DIR}/network/network-init.sh" 
+    if [ -d "${VERSION_DIR}/camera" ]; then 
+        echo "Install camera package" 
+        rm -rf "${SOFTWARE_DIR}/camera" 
+        mv -f "${VERSION_DIR}/camera" "${SOFTWARE_DIR}/camera"
     fi 
 
+    if [ -f "${VERSION_DIR}/updates.sh" ]; then 
+        mv -f "${VERSION_DIR}/updates.sh" "${SOFTWARE_DIR}/updates.sh"
+    fi 
     if [ -f "${VERSION_DIR}/VERSION.txt" ]; then 
         mv -f "${VERSION_DIR}/VERSION.txt" "${SOFTWARE_DIR}/VERSION.txt"
     fi 
