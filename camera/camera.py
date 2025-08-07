@@ -306,7 +306,7 @@ class WebServer(object):
                     self.send_error(404)
             else:
                 if self.path == "/": 
-                    self.path = "/camera.html" 
+                    self.path = "/video.html" 
                 elif not self.path.endswith(".html"): 
                     html_path = self.path + ".html" 
                     if os.path.exists(self.translate_path(html_path)):
@@ -550,7 +550,7 @@ class WebsocketConnection(object):
         logger.info(f"{version=}")
         if version:
             logger.info(f"install software {version}") 
-            await self.send_status_response(0, "Installation takes time, please wait...", id) 
+            await self.send_status_response(-1, "Installation takes time, please wait...", id) 
             code = bash_run([os.path.join(self.software_dir, "updates.sh"), "install", version]) 
             if code == 0: 
                 logger.info(f"Install software {version} successfully")
